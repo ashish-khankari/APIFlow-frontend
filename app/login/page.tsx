@@ -29,7 +29,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const registered_user_data = useAppSelector((state) => state.user);
+  const registered_user_data = useAppSelector((state) => state.auth.user);
   console.log("Registered user data login screen: ", registered_user_data)
   // Interactive Live Pipeline packet state
   const [activeStep, setActiveStep] = useState(0);
@@ -364,43 +364,6 @@ export default function LoginPage() {
                 Enter your credentials or use the 1-Click Fast Pass.
               </p>
             </div>
-
-            {/* 1-Click Fast Pass for YC Reviewers */}
-            <button
-              type="button"
-              onClick={handleFastPass}
-              disabled={isLoading}
-              style={{
-                width: "100%",
-                background: "var(--neon-lime)",
-                border: "none",
-                color: "var(--neon-lime-dark)",
-                borderRadius: "10px",
-                padding: "12px 18px",
-                fontSize: "13px",
-                fontWeight: 900,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                boxShadow: "0 0 20px var(--neon-lime-glow)",
-                transition: "all 0.15s ease",
-                marginBottom: "20px",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow = "0 0 28px rgba(186, 255, 57, 0.4)";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 0 20px var(--neon-lime-glow)";
-              }}
-            >
-              <Sparkles size={15} />
-              <span>1-Click YC Reviewer Fast Pass</span>
-              <ArrowRight size={14} />
-            </button>
 
             {/* Divider */}
             <div

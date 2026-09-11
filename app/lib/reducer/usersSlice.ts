@@ -5,7 +5,7 @@ export interface UserData {
     email: string,
     company_name: string,
     id?: number | null,
-    password: string,
+    password?: string,
 }
 
 export interface OnboardingData {
@@ -18,7 +18,6 @@ const initialState = {
         email: '',
         full_name: '',
         id: null,
-        password: ''
     } as UserData,
     onboardingData: {
         company_name: '',

@@ -38,7 +38,7 @@ export default function RegisterPage() {
 
   const dispatch = useAppDispatch();
 
-  const getOnboardingDetails = useAppSelector(state => state.onboardingData.company_name);
+  const getOnboardingDetails = useAppSelector(state => state.auth.onboardingData.company_name);
 
   // Dynamic Password Strength Meter
   const getPasswordStrength = () => {
@@ -63,13 +63,15 @@ export default function RegisterPage() {
     };
 
     try {
-      const register_response = await request<UserData>({
+      await request<UserData>({
         method: 'POST',
         url: 'register',
         data: newUser
       });
 
-      dispatch(SET_USERS(register_response));
+      const { password, ...userWithoutPassword } = newUser;
+
+      dispatch(SET_USERS(userWithoutPassword));
       toast.success(
         "Account Created Successfully!",
         `Welcome aboard, ${fullName || "User"}. Redirecting you to login...`
