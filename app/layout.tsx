@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import StoreProvider from "./StoreProvider";
+import { ToastProvider } from "./components/Toast";
 
 export const metadata: Metadata = {
   title: "API Flow · Visual Workflow Orchestrator",
@@ -9,7 +11,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <StoreProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </StoreProvider>
+      </body>
     </html>
   );
 }
