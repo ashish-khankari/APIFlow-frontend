@@ -418,6 +418,98 @@ const starterFlows: SavedFlow[] = [
       },
     ],
   },
+  {
+    id: "flow-auth-test",
+    name: "Authentication Flow",
+    description: "3-step authentication verification: Login -> Token Verify -> Session Profile.",
+    updatedAt: Date.now() - 1800000,
+    nodes: [
+      {
+        id: "auth-1",
+        type: "apiStep",
+        position: { x: 120, y: 180 },
+        data: {
+          nodeNumber: 1,
+          label: "Login API",
+          category: "api",
+          method: "POST",
+          baseUrl: "https://api.ecommerce.com",
+          endpoint: "/auth/login",
+          owner: "Auth Team",
+          status: "Completed",
+          priority: "Critical",
+          description: "Authenticates credentials and returns JWT bearer token.",
+          expectedStatus: 200,
+          requestBody: '{\n  "email": "alex@company.com",\n  "password": "••••••••"\n}',
+          customFields: [
+            { id: "acf-1", label: "Content-Type", value: "application/json" },
+          ],
+        },
+      },
+      {
+        id: "auth-2",
+        type: "apiStep",
+        position: { x: 460, y: 180 },
+        data: {
+          nodeNumber: 2,
+          label: "Verify Token",
+          category: "api",
+          method: "GET",
+          baseUrl: "https://api.ecommerce.com",
+          endpoint: "/auth/verify",
+          owner: "Security Team",
+          status: "Completed",
+          priority: "High",
+          description: "Validates cryptographic signature and claims expiration.",
+          expectedStatus: 200,
+          customFields: [
+            { id: "acf-2", label: "Authorization", value: "Bearer {{token}}" },
+          ],
+        },
+      },
+      {
+        id: "auth-3",
+        type: "apiStep",
+        position: { x: 800, y: 180 },
+        data: {
+          nodeNumber: 3,
+          label: "Tenant Profile",
+          category: "api",
+          method: "GET",
+          baseUrl: "https://api.ecommerce.com",
+          endpoint: "/users/me",
+          owner: "User Core",
+          status: "In progress",
+          priority: "High",
+          description: "Retrieves tenant workspace profile and user permissions.",
+          expectedStatus: 200,
+          customFields: [
+            { id: "acf-3", label: "Authorization", value: "Bearer {{token}}" },
+          ],
+        },
+      },
+    ],
+    edges: [
+      {
+        id: "e-auth-1-2",
+        source: "auth-1",
+        target: "auth-2",
+        type: "smoothstep",
+        animated: true,
+        style: { stroke: "#BAFF39", strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
+      },
+      {
+        id: "e-auth-2-3",
+        source: "auth-2",
+        target: "auth-3",
+        type: "smoothstep",
+        animated: true,
+        style: { stroke: "#BAFF39", strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
+      },
+    ],
+  },
 ];
 
 // Custom React Flow Node Component with the Original Canvas Design
@@ -825,6 +917,22 @@ export default function FlowEditorPage() {
       } else {
         setFlows(starterFlows);
         setActiveFlowId(starterFlows[0].id);
+      }
+
+      const preferredFlowId = window.localStorage.getItem("apiflow_active_flow_id");
+      if (preferredFlowId) {
+        // Ensure flow exists
+        const allKnown = starterFlows;
+        setFlows((prev) => {
+          const exists = prev.some((f) => f.id === preferredFlowId);
+          if (!exists) {
+            const foundInStarter = allKnown.find((f) => f.id === preferredFlowId);
+            return foundInStarter ? [foundInStarter, ...prev] : prev;
+          }
+          return prev;
+        });
+        setActiveFlowId(preferredFlowId);
+        window.localStorage.removeItem("apiflow_active_flow_id");
       }
 
       const storedUser = window.localStorage.getItem("apiflow_user");

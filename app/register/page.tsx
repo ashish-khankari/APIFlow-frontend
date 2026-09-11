@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,31 +11,34 @@ import {
   Building,
   Sparkles,
   ShieldCheck,
-  CheckCircle2,
-  Cpu,
   Zap,
   Globe,
-  Radio,
   ArrowUpRight,
   Eye,
   EyeOff,
-  Layers,
 } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "../lib/hooks";
+import { SET_USERS, UserData } from "../lib/reducer/usersSlice";
+import { request } from "../services/request";
+import { toast } from "../components/Toast";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isCohortChecked, setIsCohortChecked] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   // Compute workspace slug in real-time
   const computedSlug = company
     ? company.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-")
     : "my-workspace";
+
+  const dispatch = useAppDispatch();
+
+  const getOnboardingDetails = useAppSelector(state => state.onboardingData.company_name);
 
   // Dynamic Password Strength Meter
   const getPasswordStrength = () => {
@@ -49,52 +52,47 @@ export default function RegisterPage() {
 
   const strength = getPasswordStrength();
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    const newUser: UserData = {
+      full_name: fullName,
+      email,
+      company_name: company,
+      password
+    };
 
-    setTimeout(() => {
-      const newUser = {
-        name: name || "Alex Rivera",
-        email: email || "alex@company.com",
-        company: company || "NextGen APIs (YC S26)",
-        role: "Workspace Architect",
-        token: "jwt-reg-" + Date.now(),
-        registeredAt: Date.now(),
-      };
-      localStorage.setItem("apiflow_user", JSON.stringify(newUser));
-      router.push("/onboarding");
-    }, 500);
+    try {
+      const register_response = await request<UserData>({
+        method: 'POST',
+        url: 'register',
+        data: newUser
+      });
+
+      dispatch(SET_USERS(register_response));
+      toast.success(
+        "Account Created Successfully!",
+        `Welcome aboard, ${fullName || "User"}. Redirecting you to login...`
+      );
+      setTimeout(() => {
+        router.push("/login");
+      }, 1200);
+    } catch (error) {
+      console.error("Error on register:", error);
+      toast.apiError(error, "Registration failed. Please check your details or backend server status.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDemoRegister = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      const demoUser = {
-        name: "Alex Rivera",
-        email: "alex@apiflow.dev",
-        company: "Stripe & AI Orchestrator (YC S26)",
-        role: "Workspace Architect",
-        token: "jwt-demo-" + Date.now(),
-        registeredAt: Date.now(),
-      };
-      localStorage.setItem("apiflow_user", JSON.stringify(demoUser));
-      router.push("/onboarding");
-    }, 400);
-  };
+  useEffect(() => {
+    if (getOnboardingDetails) {
+      setCompany(getOnboardingDetails)
+    }
+  }, [getOnboardingDetails]);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "var(--bg-app)",
-        color: "var(--text-white)",
-        display: "flex",
-        flexDirection: "column",
-        position: "relative",
-        overflowX: "hidden",
-      }}
-    >
+    <div className="auth-root">
       {/* Background Animated Neon Grid & Radial Spotlights */}
       <div
         style={{
@@ -112,7 +110,7 @@ export default function RegisterPage() {
           top: "10%",
           left: "25%",
           transform: "translate(-50%, -50%)",
-          width: "700px",
+          width: "min(700px, 90vw)",
           height: "450px",
           background: "radial-gradient(circle, rgba(186, 255, 57, 0.1) 0%, transparent 70%)",
           pointerEvents: "none",
@@ -120,20 +118,7 @@ export default function RegisterPage() {
       />
 
       {/* Top Header */}
-      <header
-        style={{
-          height: "64px",
-          borderBottom: "1px solid var(--border-subtle)",
-          background: "rgba(18, 22, 30, 0.7)",
-          backdropFilter: "blur(12px)",
-          padding: "0 36px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          position: "relative",
-          zIndex: 20,
-        }}
-      >
+      <header className="auth-header">
         <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "10px" }}>
           <div
             style={{
@@ -158,24 +143,6 @@ export default function RegisterPage() {
         </Link>
 
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "rgba(186, 255, 57, 0.08)",
-              border: "1px solid rgba(186, 255, 57, 0.25)",
-              padding: "4px 10px",
-              borderRadius: "9999px",
-              fontSize: "11px",
-              fontWeight: 700,
-              color: "var(--neon-lime)",
-            }}
-          >
-            <Radio size={11} className="animate-pulse" />
-            <span>FOUNDER ONBOARDING</span>
-          </div>
-
           <Link
             href="/login"
             style={{
@@ -194,31 +161,9 @@ export default function RegisterPage() {
       </header>
 
       {/* Main Split Screen */}
-      <main
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          zIndex: 10,
-          maxWidth: "1280px",
-          width: "100%",
-          margin: "0 auto",
-          padding: "36px 28px",
-          gap: "64px",
-        }}
-      >
+      <main className="auth-main">
         {/* LEFT COLUMN: Feature Grid & Live Dynamic Workspace Slug */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            gap: "26px",
-            maxWidth: "540px",
-          }}
-        >
+        <div className="auth-hero">
           <div>
             <div
               style={{
@@ -240,16 +185,7 @@ export default function RegisterPage() {
               <span>APIFLOW TESTING SUITE</span>
             </div>
 
-            <h1
-              style={{
-                margin: "0 0 14px",
-                fontSize: "36px",
-                fontWeight: 900,
-                color: "var(--text-white)",
-                lineHeight: 1.15,
-                letterSpacing: "-1px",
-              }}
-            >
+            <h1 className="auth-hero-title">
               Build & Test Mission-Critical <br />
               <span style={{ color: "var(--neon-lime)" }}>API Workflows.</span>
             </h1>
@@ -267,7 +203,7 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* Interactive Dynamic Slug Preview */}
+          {/* Interactive Dynamic Slug Preview
           <div
             style={{
               background: "rgba(18, 22, 30, 0.85)",
@@ -302,10 +238,10 @@ export default function RegisterPage() {
                 whiteSpace: "nowrap",
               }}
             >
-              <span style={{ color: "var(--dim-grey)" }}>http://localhost:3000/workspaces/</span>
+              <span style={{ color: "var(--dim-grey)" }}>http://your_company/workspaces/</span>
               <strong style={{ color: "var(--neon-lime)" }}>{computedSlug}</strong>
             </div>
-          </div>
+          </div> */}
 
           {/* 3 Pillars List */}
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -370,12 +306,7 @@ export default function RegisterPage() {
         </div>
 
         {/* RIGHT COLUMN: Frosted Glass Registration Card */}
-        <div
-          style={{
-            flex: "0 0 440px",
-            position: "relative",
-          }}
-        >
+        <div className="auth-card-container">
           {/* Ambient Glow */}
           <div
             style={{
@@ -387,18 +318,7 @@ export default function RegisterPage() {
             }}
           />
 
-          <div
-            style={{
-              background: "rgba(18, 22, 30, 0.9)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid var(--border-bright)",
-              borderRadius: "18px",
-              padding: "36px 32px",
-              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.6), 0 0 24px rgba(186, 255, 57, 0.08)",
-              position: "relative",
-              zIndex: 1,
-            }}
-          >
+          <div className="auth-card">
             <div style={{ marginBottom: "20px" }}>
               <h2
                 style={{
@@ -414,61 +334,6 @@ export default function RegisterPage() {
               <p style={{ margin: 0, fontSize: "13px", color: "var(--text-secondary)" }}>
                 Start orchestrating your pipelines with full local control.
               </p>
-            </div>
-
-            {/* 1-Click Instant Demo Sign Up */}
-            <button
-              type="button"
-              onClick={handleDemoRegister}
-              disabled={isLoading}
-              style={{
-                width: "100%",
-                background: "var(--neon-lime)",
-                border: "none",
-                color: "var(--neon-lime-dark)",
-                borderRadius: "10px",
-                padding: "12px 18px",
-                fontSize: "13px",
-                fontWeight: 900,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                boxShadow: "0 0 20px var(--neon-lime-glow)",
-                transition: "all 0.15s ease",
-                marginBottom: "20px",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow = "0 0 28px rgba(186, 255, 57, 0.4)";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 0 20px var(--neon-lime-glow)";
-              }}
-            >
-              <Sparkles size={15} />
-              <span>Instant Demo Registration (1-Click)</span>
-              <ArrowRight size={14} />
-            </button>
-
-            {/* Divider */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                margin: "0 0 18px",
-                color: "var(--dim-grey)",
-                fontSize: "11px",
-                fontWeight: 700,
-                letterSpacing: "0.5px",
-                textTransform: "uppercase",
-              }}
-            >
-              <div style={{ flex: 1, height: "1px", background: "var(--border-subtle)" }} />
-              <span style={{ padding: "0 10px" }}>OR FILL DETAILS</span>
-              <div style={{ flex: 1, height: "1px", background: "var(--border-subtle)" }} />
             </div>
 
             {/* Form */}
@@ -490,8 +355,8 @@ export default function RegisterPage() {
                   <input
                     type="text"
                     required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                     placeholder="Alex Rivera"
                     style={{
                       width: "100%",
@@ -688,37 +553,6 @@ export default function RegisterPage() {
                     ))}
                   </div>
                 )}
-              </div>
-
-              {/* Checkbox for YC early cohort */}
-              <div
-                onClick={() => setIsCohortChecked(!isCohortChecked)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  fontSize: "12px",
-                  color: "var(--text-secondary)",
-                  cursor: "pointer",
-                  marginTop: "2px",
-                }}
-              >
-                <div
-                  style={{
-                    width: "16px",
-                    height: "16px",
-                    borderRadius: "4px",
-                    background: isCohortChecked ? "var(--neon-lime)" : "var(--bg-surface-elevated)",
-                    border: `1px solid ${isCohortChecked ? "var(--neon-lime)" : "var(--border-medium)"}`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "var(--neon-lime-dark)",
-                  }}
-                >
-                  {isCohortChecked && <CheckCircle2 size={12} />}
-                </div>
-                <span>Fast-track setup with YC S26 Starter Blueprints</span>
               </div>
 
               {/* Submit */}

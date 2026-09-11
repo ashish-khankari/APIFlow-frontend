@@ -26,8 +26,10 @@ import {
   ArrowUpRight,
   Check,
 } from "lucide-react";
+import { useAppDispatch } from "../lib/hooks";
+import { SET_ONBOARDING_DETAILS } from "../lib/reducer/usersSlice";
 
-type TemplateType = "stripe" | "ai" | "fintech";
+type TemplateType = "ecommerce" | "auth" | "stripe";
 
 interface PipelineStep {
   name: string;
@@ -49,9 +51,49 @@ const TEMPLATES: Record<
     curlCmd: string;
   }
 > = {
+  ecommerce: {
+    id: "ecommerce",
+    title: "E-commerce API Test (6 Nodes)",
+    subtitle: "Sequential 6-step verification: Auth -> Profile -> Catalog -> Cart -> Checkout -> Logout.",
+    tag: "E-COMMERCE / FULL FLOW",
+    nodes: [
+      { name: "Login API", type: "POST /login", badge: "AUTH", status: "idle", latency: "12.4ms" },
+      { name: "Profile API", type: "GET /profile", badge: "USER CORE", status: "idle", latency: "8.2ms" },
+      { name: "Products API", type: "GET /products", badge: "CATALOG", status: "idle", latency: "15.1ms" },
+      { name: "Cart API", type: "POST /cart", badge: "CHECKOUT", status: "idle", latency: "9.4ms" },
+      { name: "Checkout API", type: "POST /checkout", badge: "PAYMENT", status: "idle", latency: "28.6ms" },
+      { name: "Logout API", type: "POST /logout", badge: "SESSION", status: "idle", latency: "6.5ms" },
+    ],
+    samplePayload: {
+      auth: { user: "alex@ecommerce.com", token: "Bearer eyJhbGciOiJIUzI1Ni..." },
+      cart: { sku: "PROD-101", quantity: 1, price: 49.0 },
+      checkout: { payment_method: "mock_card", currency: "USD", status: "completed" },
+    },
+    curlCmd: `curl -X POST https://api.ecommerce.com/checkout \\\n  -H "Authorization: Bearer eyJhbGciOiJIUzI1Ni..." \\\n  -H "Content-Type: application/json" \\\n  -d '{"sku":"PROD-101","quantity":1,"currency":"USD"}'`,
+  },
+  auth: {
+    id: "auth",
+    title: "Authentication Flow (3 Nodes)",
+    subtitle: "Core security handshake: User credentials login, JWT validation, and user profile retrieval.",
+    tag: "AUTH / SECURITY",
+    nodes: [
+      { name: "Credentials Login", type: "POST /auth/login", badge: "AUTH", status: "idle", latency: "14.2ms" },
+      { name: "Verify Token", type: "GET /auth/verify", badge: "SECURITY", status: "idle", latency: "4.1ms" },
+      { name: "Tenant Profile", type: "GET /users/me", badge: "SESSION", status: "idle", latency: "7.8ms" },
+    ],
+    samplePayload: {
+      email: "alex@company.com",
+      token_type: "Bearer",
+      access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      expires_in: 3600,
+      user_id: "usr_9912",
+      role: "Workspace Architect",
+    },
+    curlCmd: `curl -X POST https://api.ecommerce.com/auth/login \\\n  -H "Content-Type: application/json" \\\n  -d '{"email":"alex@company.com","password":"••••••••"}'`,
+  },
   stripe: {
     id: "stripe",
-    title: "Stripe Webhook → DB Sync & Slack Alert",
+    title: "Stripe Webhook & DB Sync (4 Nodes)",
     subtitle: "Real-time idempotent subscription processing with PostgreSQL ledger auditing.",
     tag: "FINTECH / BILLING",
     nodes: [
@@ -74,55 +116,14 @@ const TEMPLATES: Record<
     },
     curlCmd: `curl -X POST https://api.flow.dev/v1/webhooks/stripe \\\n  -H "X-Signature: t=17258392,v1=9a8c..." \\\n  -d '{"event":"charge.succeeded","amount":4900}'`,
   },
-  ai: {
-    id: "ai",
-    title: "OpenAI GPT-4o Enrichment & PagerDuty",
-    subtitle: "Classify high-severity customer tickets, compute sentiment, and escalate instantly.",
-    tag: "AI / AUTOMATION",
-    nodes: [
-      { name: "Inbound Support Stream", type: "REST Hook", badge: "TRIGGER", status: "idle", latency: "2.1ms" },
-      { name: "OpenAI GPT-4o Triage", type: "LLM Embeddings", badge: "AI CORE", status: "idle", latency: "182ms" },
-      { name: "Severity Threshold Check", type: "Condition Logic", badge: "ROUTING", status: "idle", latency: "0.8ms" },
-      { name: "PagerDuty Incident Enqueue", type: "v2/enqueue", badge: "URGENT", status: "idle", latency: "22.5ms" },
-    ],
-    samplePayload: {
-      ticket_id: "TCK-88412",
-      customer_tier: "Enterprise Tier 1",
-      sentiment_score: 0.14,
-      classification: "Critical Production Outage",
-      summary: "Database connection timeouts detected during checkout API calls.",
-      auto_escalate: true,
-    },
-    curlCmd: `curl -X POST https://api.flow.dev/v1/ai/triage \\\n  -H "Authorization: Bearer sk-apiflow..." \\\n  -d '{"ticket_id":"TCK-88412","urgency":"CRITICAL"}'`,
-  },
-  fintech: {
-    id: "fintech",
-    title: "OAuth2 Token Mint & Microservice Gateway",
-    subtitle: "High-throughput token rotation, rate-limiting, and distributed Redis session caching.",
-    tag: "SECURITY / CORE",
-    nodes: [
-      { name: "OAuth2 Authorize Request", type: "GET /auth", badge: "GATEWAY", status: "idle", latency: "0.9ms" },
-      { name: "Cryptographic Key Check", type: "RS256 Verify", badge: "AUTH", status: "idle", latency: "4.2ms" },
-      { name: "Redis Token Bucket Check", type: "Rate Limiter", badge: "CACHE", status: "idle", latency: "1.1ms" },
-      { name: "Issue JWT Session Token", type: "Signed JWT", badge: "RESPONSE", status: "idle", latency: "3.7ms" },
-    ],
-    samplePayload: {
-      grant_type: "authorization_code",
-      client_id: "apiflow_client_82a",
-      scope: ["read:flows", "write:nodes", "admin:execute"],
-      expires_in: 3600,
-      token_type: "Bearer",
-    },
-    curlCmd: `curl -X POST https://api.flow.dev/oauth/token \\\n  -d '{"grant_type":"client_credentials"}'`,
-  },
 };
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [workspaceName, setWorkspaceName] = useState("Veloce Technologies");
+  const [workspaceName, setWorkspaceName] = useState("");
   const [founderRole, setFounderRole] = useState("Founding Engineer");
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>("stripe");
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>("ecommerce");
   const [activeTab, setActiveTab] = useState<"visual" | "payload" | "curl">("visual");
 
   // Live simulation state
@@ -137,37 +138,46 @@ export default function OnboardingPage() {
 
   const currentTpl = TEMPLATES[selectedTemplate];
 
+  const dispatch = useAppDispatch();
+
+  // Test Fire Simulation Runner
   // Test Fire Simulation Runner
   const runTestSimulation = () => {
     if (isSimulating) return;
     setIsSimulating(true);
     setActiveNodeIndex(0);
-    setSimulatedLogs([`[0.0ms] ⚡ Webhook event received via edge gateway`]);
+    setSimulatedLogs([`[0.0ms] ⚡ Initiating ${currentTpl.title} execution pipeline...`]);
 
-    const nodeDelays = [400, 900, 1400, 1900];
-    nodeDelays.forEach((delay, idx) => {
+    const totalNodes = currentTpl.nodes.length;
+    currentTpl.nodes.forEach((node, idx) => {
       setTimeout(() => {
         setActiveNodeIndex(idx);
-        const node = currentTpl.nodes[idx];
         setSimulatedLogs((prev) => [
           ...prev,
-          `[+${node.latency}] ✓ ${node.name} (${node.type}) executed with 200 OK`,
+          `[+${node.latency}] ✓ Node ${idx + 1}: ${node.name} (${node.type}) verified with 200 OK`,
         ]);
 
-        if (idx === nodeDelays.length - 1) {
+        if (idx === totalNodes - 1) {
           setTimeout(() => {
             setActiveNodeIndex(-1);
             setIsSimulating(false);
             setLiveLatency(node.latency);
             setSimulatedLogs((prev) => [
               ...prev,
-              `✨ Flow execution completed in 27.8ms total duration. 0 dropped frames.`,
+              `✨ Pipeline verified: all ${totalNodes} nodes passed deterministic test assertions.`,
             ]);
-          }, 600);
+          }, 450);
         }
-      }, delay);
+      }, (idx + 1) * 400);
     });
   };
+
+  const handleCompanyName = () => {
+    dispatch(SET_ONBOARDING_DETAILS({
+      company_name: workspaceName,
+    }));
+    setStep(2);
+  }
 
   // Launch Ignition Sequence (Step 3)
   useEffect(() => {
@@ -203,31 +213,7 @@ export default function OnboardingPage() {
   }, [step, currentTpl.title]);
 
   const handleFinishLaunch = () => {
-    // Seed the chosen flow into localStorage so the user immediately sees it on the canvas!
-    try {
-      const onboardingData = {
-        workspaceName,
-        founderRole,
-        selectedTemplate,
-        completedAt: Date.now(),
-      };
-      localStorage.setItem("apiflow_onboarding", JSON.stringify(onboardingData));
-
-      // Also ensure user session exists
-      if (!localStorage.getItem("apiflow_user")) {
-        localStorage.setItem(
-          "apiflow_user",
-          JSON.stringify({
-            name: "Alex Rivera",
-            email: "founder@apiflow.dev",
-            role: `${founderRole} @ ${workspaceName}`,
-            token: "yc-s26-pass-" + Date.now(),
-          })
-        );
-      }
-    } catch {}
-
-    router.push("/");
+    router.push("/register");
   };
 
   return (
@@ -294,25 +280,6 @@ export default function OnboardingPage() {
               API FLOW
             </span>
           </Link>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "rgba(186, 255, 57, 0.1)",
-              border: "1px solid rgba(186, 255, 57, 0.3)",
-              padding: "3px 9px",
-              borderRadius: "9999px",
-              fontSize: "10px",
-              fontWeight: 800,
-              color: "var(--neon-lime)",
-              letterSpacing: "0.5px",
-            }}
-          >
-            <Radio size={10} className="animate-pulse" />
-            <span>YC S26 INITIALIZATION</span>
-          </div>
         </div>
 
         {/* Stepper Header Pills */}
@@ -337,20 +304,19 @@ export default function OnboardingPage() {
                   background: isCurrent
                     ? "rgba(186, 255, 57, 0.12)"
                     : isDone
-                    ? "var(--bg-surface-elevated)"
-                    : "transparent",
-                  border: `1px solid ${
-                    isCurrent
-                      ? "var(--neon-lime)"
-                      : isDone
+                      ? "var(--bg-surface-elevated)"
+                      : "transparent",
+                  border: `1px solid ${isCurrent
+                    ? "var(--neon-lime)"
+                    : isDone
                       ? "var(--border-medium)"
                       : "transparent"
-                  }`,
+                    }`,
                   color: isCurrent
                     ? "var(--neon-lime)"
                     : isDone
-                    ? "var(--text-white)"
-                    : "var(--dim-grey)",
+                      ? "var(--text-white)"
+                      : "var(--dim-grey)",
                   fontSize: "12px",
                   fontWeight: isCurrent ? 700 : 500,
                   cursor: isDone ? "pointer" : "default",
@@ -370,39 +336,23 @@ export default function OnboardingPage() {
                     background: isCurrent
                       ? "var(--neon-lime)"
                       : isDone
-                      ? "rgba(186, 255, 57, 0.3)"
-                      : "var(--border-medium)",
+                        ? "rgba(186, 255, 57, 0.3)"
+                        : "var(--border-medium)",
                     color: isCurrent ? "var(--neon-lime-dark)" : "var(--neon-lime)",
                   }}
                 >
                   {isDone ? <Check size={11} /> : s.num}
                 </div>
-                <span>{s.label}</span>
+                <span className="onboarding-stepper-label">{s.label}</span>
               </div>
             );
           })}
-        </div>
-
-        <div>
-          <Link
-            href="/"
-            style={{
-              fontSize: "12px",
-              color: "var(--dim-grey-light)",
-              textDecoration: "none",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-          >
-            <span>Skip to Canvas</span>
-            <ArrowUpRight size={13} />
-          </Link>
         </div>
       </header>
 
       {/* Main Studio Body */}
       <main
+        className="onboarding-main"
         style={{
           flex: 1,
           display: "flex",
@@ -417,6 +367,7 @@ export default function OnboardingPage() {
       >
         {/* LEFT COLUMN: Controls & Steps */}
         <div
+          className="onboarding-left-col"
           style={{
             flex: "0 0 460px",
             display: "flex",
@@ -470,7 +421,7 @@ export default function OnboardingPage() {
                     color: "var(--text-secondary)",
                   }}
                 >
-                  Workspace / Startup Name
+                  Project / Company Name
                 </label>
                 <div style={{ position: "relative" }}>
                   <input
@@ -489,19 +440,6 @@ export default function OnboardingPage() {
                       outline: "none",
                     }}
                   />
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: "12px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      fontSize: "11px",
-                      color: "var(--neon-lime)",
-                      fontWeight: 700,
-                    }}
-                  >
-                    ● LOCAL
-                  </div>
                 </div>
               </div>
 
@@ -537,9 +475,8 @@ export default function OnboardingPage() {
                           background: isSelected
                             ? "rgba(186, 255, 57, 0.12)"
                             : "var(--bg-surface-elevated)",
-                          border: `1px solid ${
-                            isSelected ? "var(--neon-lime)" : "var(--border-subtle)"
-                          }`,
+                          border: `1px solid ${isSelected ? "var(--neon-lime)" : "var(--border-subtle)"
+                            }`,
                           color: isSelected ? "var(--neon-lime)" : "var(--text-white)",
                           fontSize: "12px",
                           fontWeight: 600,
@@ -590,7 +527,7 @@ export default function OnboardingPage() {
               {/* Continue Action */}
               <button
                 type="button"
-                onClick={() => setStep(2)}
+                onClick={handleCompanyName}
                 style={{
                   background: "var(--neon-lime)",
                   border: "none",
@@ -653,25 +590,25 @@ export default function OnboardingPage() {
                 {(
                   [
                     {
+                      id: "ecommerce",
+                      icon: Globe,
+                      title: "E-commerce API Test",
+                      badge: "6 NODES",
+                      desc: "6 nodes · Sequential validation · Full checkout lifecycle",
+                    },
+                    {
+                      id: "auth",
+                      icon: ShieldCheck,
+                      title: "Authentication Flow",
+                      badge: "3 NODES",
+                      desc: "3 nodes · JWT issuance · Session & permission verification",
+                    },
+                    {
                       id: "stripe",
                       icon: Zap,
                       title: "Stripe Webhook & DB Sync",
-                      badge: "PAYMENTS",
+                      badge: "4 NODES",
                       desc: "4 nodes · Idempotent Ledger · Instant Slack alerts",
-                    },
-                    {
-                      id: "ai",
-                      icon: Cpu,
-                      title: "OpenAI GPT-4o Triage Pipeline",
-                      badge: "AI CORE",
-                      desc: "4 nodes · Realtime sentiment & PagerDuty escalation",
-                    },
-                    {
-                      id: "fintech",
-                      icon: ShieldCheck,
-                      title: "OAuth2 Token & Rate Limiter",
-                      badge: "GATEWAY",
-                      desc: "4 nodes · Redis token bucket & RS256 signing",
                     },
                   ] as const
                 ).map((tpl) => {
@@ -687,9 +624,8 @@ export default function OnboardingPage() {
                         background: isSelected
                           ? "rgba(186, 255, 57, 0.08)"
                           : "var(--bg-surface-elevated)",
-                        border: `1px solid ${
-                          isSelected ? "var(--neon-lime)" : "var(--border-subtle)"
-                        }`,
+                        border: `1px solid ${isSelected ? "var(--neon-lime)" : "var(--border-subtle)"
+                          }`,
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
@@ -939,6 +875,7 @@ export default function OnboardingPage() {
 
         {/* RIGHT COLUMN: Live Interactive Pipeline Simulator */}
         <div
+          className="onboarding-sandbox-col"
           style={{
             flex: 1,
             background: "var(--bg-surface)",
@@ -1078,9 +1015,13 @@ export default function OnboardingPage() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
+                  justifyContent: currentTpl.nodes.length <= 4 ? "space-between" : "flex-start",
                   position: "relative",
                   zIndex: 2,
+                  overflowX: "auto",
+                  padding: "16px 8px",
+                  gap: currentTpl.nodes.length <= 4 ? "0" : "8px",
+                  scrollbarWidth: "thin",
                 }}
               >
                 {currentTpl.nodes.map((node, index) => {
@@ -1091,17 +1032,18 @@ export default function OnboardingPage() {
                       {/* Node Card */}
                       <div
                         style={{
-                          width: "170px",
+                          width: currentTpl.nodes.length <= 4 ? "170px" : "150px",
+                          minWidth: currentTpl.nodes.length <= 4 ? "150px" : "140px",
+                          flexShrink: 0,
                           background: isActive
                             ? "rgba(186, 255, 57, 0.1)"
                             : "var(--bg-card)",
-                          border: `1px solid ${
-                            isActive
-                              ? "var(--neon-lime)"
-                              : isDone
+                          border: `1px solid ${isActive
+                            ? "var(--neon-lime)"
+                            : isDone
                               ? "rgba(186, 255, 57, 0.4)"
                               : "var(--border-medium)"
-                          }`,
+                            }`,
                           borderRadius: "10px",
                           padding: "12px",
                           boxShadow: isActive
@@ -1191,13 +1133,15 @@ export default function OnboardingPage() {
                       {index < currentTpl.nodes.length - 1 && (
                         <div
                           style={{
-                            flex: 1,
+                            flex: currentTpl.nodes.length <= 4 ? 1 : "none",
+                            width: currentTpl.nodes.length <= 4 ? "auto" : "24px",
+                            minWidth: "16px",
                             height: "2px",
                             background: isDone
                               ? "var(--neon-lime)"
                               : isActive
-                              ? "linear-gradient(90deg, var(--neon-lime), var(--border-medium))"
-                              : "var(--border-medium)",
+                                ? "linear-gradient(90deg, var(--neon-lime), var(--border-medium))"
+                                : "var(--border-medium)",
                             position: "relative",
                             margin: "0 6px",
                             boxShadow: isDone ? "0 0 8px var(--neon-lime)" : "none",
