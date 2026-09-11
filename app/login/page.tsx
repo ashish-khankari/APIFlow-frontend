@@ -20,6 +20,7 @@ import {
   ArrowUpRight,
   Globe,
 } from "lucide-react";
+import { useAppSelector } from "../lib/hooks";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,8 +28,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"magic" | "password">("password");
 
+  const registered_user_data = useAppSelector((state) => state.user);
+  console.log("Registered user data login screen: ", registered_user_data)
   // Interactive Live Pipeline packet state
   const [activeStep, setActiveStep] = useState(0);
 
@@ -36,7 +38,7 @@ export default function LoginPage() {
   React.useEffect(() => {
     const interval = setInterval(() => {
       setActiveStep((prev) => (prev + 1) % 3);
-    }, 1600);
+    }, 3500);
     return () => clearInterval(interval);
   }, []);
 
@@ -73,17 +75,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "var(--bg-app)",
-        color: "var(--text-white)",
-        display: "flex",
-        flexDirection: "column",
-        position: "relative",
-        overflowX: "hidden",
-      }}
-    >
+    <div className="auth-root">
       {/* Background Animated Neon Grid & Radial Spotlights */}
       <div
         style={{
@@ -101,7 +93,7 @@ export default function LoginPage() {
           top: "10%",
           left: "25%",
           transform: "translate(-50%, -50%)",
-          width: "700px",
+          width: "min(700px, 90vw)",
           height: "450px",
           background: "radial-gradient(circle, rgba(186, 255, 57, 0.1) 0%, transparent 70%)",
           pointerEvents: "none",
@@ -112,7 +104,7 @@ export default function LoginPage() {
           position: "fixed",
           bottom: "10%",
           right: "20%",
-          width: "500px",
+          width: "min(500px, 80vw)",
           height: "350px",
           background: "radial-gradient(circle, rgba(56, 189, 248, 0.06) 0%, transparent 70%)",
           pointerEvents: "none",
@@ -120,20 +112,7 @@ export default function LoginPage() {
       />
 
       {/* Top Header */}
-      <header
-        style={{
-          height: "64px",
-          borderBottom: "1px solid var(--border-subtle)",
-          background: "rgba(18, 22, 30, 0.7)",
-          backdropFilter: "blur(12px)",
-          padding: "0 36px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          position: "relative",
-          zIndex: 20,
-        }}
-      >
+      <header className="auth-header">
         <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "10px" }}>
           <div
             style={{
@@ -156,69 +135,12 @@ export default function LoginPage() {
             API FLOW
           </span>
         </Link>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "rgba(186, 255, 57, 0.08)",
-              border: "1px solid rgba(186, 255, 57, 0.25)",
-              padding: "4px 10px",
-              borderRadius: "9999px",
-              fontSize: "11px",
-              fontWeight: 700,
-              color: "var(--neon-lime)",
-            }}
-          >
-            <Radio size={11} className="animate-pulse" />
-            <span>YC S26 DEMO ENVIRONMENT</span>
-          </div>
-
-          <Link
-            href="/"
-            style={{
-              fontSize: "12px",
-              color: "var(--dim-grey-light)",
-              textDecoration: "none",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-          >
-            <span>Skip to Canvas</span>
-            <ArrowUpRight size={13} />
-          </Link>
-        </div>
       </header>
 
       {/* Main Split Screen Showcase */}
-      <main
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          zIndex: 10,
-          maxWidth: "1280px",
-          width: "100%",
-          margin: "0 auto",
-          padding: "36px 28px",
-          gap: "64px",
-        }}
-      >
+      <main className="auth-main">
         {/* LEFT COLUMN: Hero & Animated Interactive Graph Preview */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            gap: "28px",
-            maxWidth: "540px",
-          }}
-        >
+        <div className="auth-hero">
           <div>
             <div
               style={{
@@ -240,16 +162,7 @@ export default function LoginPage() {
               <span>THE VISUAL RUNTIME FOR API WORKFLOW TESTING</span>
             </div>
 
-            <h1
-              style={{
-                margin: "0 0 14px",
-                fontSize: "36px",
-                fontWeight: 900,
-                color: "var(--text-white)",
-                lineHeight: 1.15,
-                letterSpacing: "-1px",
-              }}
-            >
+            <h1 className="auth-hero-title">
               Test Every API Workflow. <br />
               <span style={{ color: "var(--neon-lime)" }}>Visual. Deterministic. Fast.</span>
             </h1>
@@ -333,9 +246,8 @@ export default function LoginPage() {
                         background: isCurrent
                           ? "rgba(186, 255, 57, 0.12)"
                           : "var(--bg-card)",
-                        border: `1px solid ${
-                          isCurrent ? "var(--neon-lime)" : "var(--border-subtle)"
-                        }`,
+                        border: `1px solid ${isCurrent ? "var(--neon-lime)" : "var(--border-subtle)"
+                          }`,
                         borderRadius: "8px",
                         padding: "10px",
                         transition: "all 0.3s ease",
@@ -379,8 +291,8 @@ export default function LoginPage() {
                             activeStep > i
                               ? "var(--neon-lime)"
                               : isCurrent
-                              ? "linear-gradient(90deg, var(--neon-lime), var(--border-medium))"
-                              : "var(--border-medium)",
+                                ? "linear-gradient(90deg, var(--neon-lime), var(--border-medium))"
+                                : "var(--border-medium)",
                           boxShadow: activeStep > i ? "0 0 6px var(--neon-lime)" : "none",
                           transition: "all 0.3s ease",
                         }}
@@ -423,12 +335,7 @@ export default function LoginPage() {
         </div>
 
         {/* RIGHT COLUMN: High-End Frosted Glass Auth Card */}
-        <div
-          style={{
-            flex: "0 0 420px",
-            position: "relative",
-          }}
-        >
+        <div className="auth-card-container">
           {/* Ambient Glow */}
           <div
             style={{
@@ -440,18 +347,7 @@ export default function LoginPage() {
             }}
           />
 
-          <div
-            style={{
-              background: "rgba(18, 22, 30, 0.9)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid var(--border-bright)",
-              borderRadius: "18px",
-              padding: "36px 32px",
-              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.6), 0 0 24px rgba(186, 255, 57, 0.08)",
-              position: "relative",
-              zIndex: 1,
-            }}
-          >
+          <div className="auth-card">
             <div style={{ marginBottom: "22px" }}>
               <h2
                 style={{
