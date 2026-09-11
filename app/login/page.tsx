@@ -20,7 +20,11 @@ import {
   ArrowUpRight,
   Globe,
 } from "lucide-react";
-import { useAppSelector } from "../lib/hooks";
+import { useAppDispatch, useAppSelector } from "../lib/hooks";
+import { request } from "../services/request";
+import { SET_USERS } from "../lib/reducer/usersSlice";
+import { LoginResponse } from "../types/userTypes";
+import { toast } from "../components/Toast";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,9 +34,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const registered_user_data = useAppSelector((state) => state.auth.user);
-  console.log("Registered user data login screen: ", registered_user_data)
   // Interactive Live Pipeline packet state
   const [activeStep, setActiveStep] = useState(0);
+
+  const dispatch = useAppDispatch();
 
   // Cycle through steps every 1.5s for live visual energy
   React.useEffect(() => {
@@ -42,21 +47,32 @@ export default function LoginPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    setTimeout(() => {
-      const user = {
-        name: email ? email.split("@")[0] : "Alex Rivera",
-        email: email || "alex@apiflow.dev",
-        role: "YC S26 Founder",
-        token: "demo-jwt-token-" + Date.now(),
-        loggedAt: Date.now(),
-      };
-      localStorage.setItem("apiflow_user", JSON.stringify(user));
-      router.push("/");
-    }, 500);
+    try {
+      setIsLoading(true);
+      const loginResponse = await request<LoginResponse>({
+        method: 'POST',
+        url: '/login',
+        data: {
+          email,
+          password,
+        }
+      });
+      console.log('logn', loginResponse)
+      toast.success('Success', loginResponse.message)
+      // console.log('email: loginResponse.email, token: loginResponse.token', { email: loginResponse?.data?.email, token: loginResponse?.data?.token })
+      dispatch(SET_USERS({ email: loginResponse?.data?.user.email, token: loginResponse?.data?.user.token }));
+      setTimeout(() => {
+        router.push("/dashboard");
+        setIsLoading(false);
+      }, 500);
+    } catch (error: any) {
+      setIsLoading(false);
+      toast.apiError(error, "Login failed. Please check your email and password.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleFastPass = () => {

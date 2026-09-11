@@ -1,16 +1,5 @@
+import { OnboardingData, UserData } from "@/app/types/userTypes";
 import { createSlice } from "@reduxjs/toolkit";
-
-export interface UserData {
-    full_name: string,
-    email: string,
-    company_name: string,
-    id?: number | null,
-    password?: string,
-}
-
-export interface OnboardingData {
-    company_name: string,
-}
 
 const initialState = {
     user: {
@@ -21,7 +10,8 @@ const initialState = {
     } as UserData,
     onboardingData: {
         company_name: '',
-    } as OnboardingData
+    } as OnboardingData,
+    token: ''
 }
 
 const usersSlice = createSlice({
@@ -29,7 +19,9 @@ const usersSlice = createSlice({
     initialState,
     reducers: {
         SET_USERS: (state, action) => {
+            console.log('action.payload', action.payload)
             state.user = action.payload;
+            state.token = action.payload;
         },
         SET_ONBOARDING_DETAILS: (state, action) => {
             state.onboardingData = action.payload;

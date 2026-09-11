@@ -18,9 +18,10 @@ import {
   EyeOff,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../lib/hooks";
-import { SET_USERS, UserData } from "../lib/reducer/usersSlice";
+import { SET_USERS } from "../lib/reducer/usersSlice";
 import { request } from "../services/request";
 import { toast } from "../components/Toast";
+import { UserData } from "../types/userTypes";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -65,7 +66,7 @@ export default function RegisterPage() {
     try {
       await request<UserData>({
         method: 'POST',
-        url: 'register',
+        url: '/register',
         data: newUser
       });
 
@@ -80,7 +81,7 @@ export default function RegisterPage() {
         router.push("/login");
       }, 1200);
     } catch (error) {
-      console.error("Error on register:", error);
+      console.log('error', error)
       toast.apiError(error, "Registration failed. Please check your details or backend server status.");
     } finally {
       setIsLoading(false);

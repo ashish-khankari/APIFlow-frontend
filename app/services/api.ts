@@ -6,7 +6,7 @@ import axios, {
 } from "axios";
 
 const api: AxiosInstance = axios.create({
-    baseURL: 'http://localhost:8080/',
+    baseURL: 'http://localhost:8080',
     withCredentials: true,
     timeout: 15_000,
     headers: {
