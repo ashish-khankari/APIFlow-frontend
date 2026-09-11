@@ -33,7 +33,6 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
             // Handle expired/invalid authentication.
             // Usually redirect to login or trigger a refresh flow.
-            console.log("Unauthorized");
         }
 
         return Promise.reject(error);

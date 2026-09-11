@@ -81,7 +81,6 @@ export default function RegisterPage() {
         router.push("/login");
       }, 1200);
     } catch (error) {
-      console.log('error', error)
       toast.apiError(error, "Registration failed. Please check your details or backend server status.");
     } finally {
       setIsLoading(false);

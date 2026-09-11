@@ -59,12 +59,10 @@ export default function LoginPage() {
           password,
         }
       });
-      console.log('logn', loginResponse)
       toast.success('Success', loginResponse.message)
-      // console.log('email: loginResponse.email, token: loginResponse.token', { email: loginResponse?.data?.email, token: loginResponse?.data?.token })
       dispatch(SET_USERS({ email: loginResponse?.data?.user.email, token: loginResponse?.data?.user.token }));
       setTimeout(() => {
-        router.push("/dashboard");
+        router.push("/onboarding");
         setIsLoading(false);
       }, 500);
     } catch (error: any) {

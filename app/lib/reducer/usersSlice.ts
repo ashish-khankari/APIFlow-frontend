@@ -19,7 +19,6 @@ const usersSlice = createSlice({
     initialState,
     reducers: {
         SET_USERS: (state, action) => {
-            console.log('action.payload', action.payload)
             state.user = action.payload;
             state.token = action.payload;
         },
