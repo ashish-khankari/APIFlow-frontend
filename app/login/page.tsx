@@ -8,21 +8,15 @@ import {
   Lock,
   Mail,
   Sparkles,
-  CheckCircle2,
-  Shield,
   Eye,
   EyeOff,
   Zap,
-  Radio,
-  Cpu,
   Database,
-  Activity,
-  ArrowUpRight,
   Globe,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../lib/hooks";
 import { request } from "../services/request";
-import { SET_USERS } from "../lib/reducer/usersSlice";
+import { SET_LOGIN_USER } from "../lib/reducer/usersSlice";
 import { LoginResponse } from "../types/userTypes";
 import { toast } from "../components/Toast";
 
@@ -60,9 +54,9 @@ export default function LoginPage() {
         }
       });
       toast.success('Success', loginResponse.message)
-      dispatch(SET_USERS({ email: loginResponse?.data?.user.email, token: loginResponse?.data?.user.token }));
+      dispatch(SET_LOGIN_USER(loginResponse?.data));
       setTimeout(() => {
-        router.push("/onboarding");
+        router.push("/");
         setIsLoading(false);
       }, 500);
     } catch (error: any) {

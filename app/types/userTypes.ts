@@ -1,4 +1,4 @@
-export interface UserData {
+export interface UserData extends AuthToken {
     full_name: string;
     email: string;
     company_name: string | null;
@@ -23,5 +23,6 @@ export type LoginResponse = {
     message: string;
     data: {
         user: LoginUser;
+        token: string;
     };
 };

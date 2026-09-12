@@ -20,13 +20,18 @@ const usersSlice = createSlice({
     reducers: {
         SET_USERS: (state, action) => {
             state.user = action.payload;
-            state.token = action.payload;
         },
         SET_ONBOARDING_DETAILS: (state, action) => {
             state.onboardingData = action.payload;
+        },
+        SET_LOGIN_USER: (state, action) => {
+            state.user = action.payload.user;
+        },
+        SET_LOGOUT: (state, action) => {
+            state.user = action.payload;
         }
     }
 })
 
-export const { SET_USERS, SET_ONBOARDING_DETAILS } = usersSlice.actions;
+export const { SET_USERS, SET_ONBOARDING_DETAILS, SET_LOGIN_USER, SET_LOGOUT } = usersSlice.actions;
 export default usersSlice.reducer;

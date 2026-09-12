@@ -51,6 +51,9 @@ import {
   RefreshCw,
   HelpCircle,
 } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "./lib/hooks";
+import { SET_LOGOUT } from "./lib/reducer/usersSlice";
+import { useRouter } from "next/navigation";
 
 // Local Storage Key & Version
 const STORAGE_KEY = "apiflow-testing-workflows-v4";
@@ -873,6 +876,10 @@ export default function FlowEditorPage() {
   const [newNodeCategory, setNewNodeCategory] = useState<NodeCategory>("api");
   const [newNodeTitle, setNewNodeTitle] = useState("");
 
+
+  const dispatch = useAppDispatch();
+  
+
   // Testing & execution simulation state
   const [isTesting, setIsTesting] = useState(false);
   const [isTestingSingleApi, setIsTestingSingleApi] = useState(false);
@@ -1606,24 +1613,18 @@ export default function FlowEditorPage() {
                   {currentUser.name}
                 </span>
               </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Link
-                  href="/login"
-                  className="btn-secondary"
-                  style={{ textDecoration: "none", fontSize: "12px", padding: "6px 12px" }}
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/register"
-                  className="btn-primary"
-                  style={{ textDecoration: "none", fontSize: "12px", padding: "6px 14px" }}
-                >
-                  Register
-                </Link>
-              </div>
             )}
+            <button
+                  className="btn-secondary"
+              style={{ flex: 1, textAlign: "center", fontSize: "11px", padding: "6px 8px" }}
+              onClick={() => {
+                dispatch(SET_LOGOUT(null));
+                router.replace("/login");
+                showToast("Signed out");
+              }}
+                >
+              Sign Out
+            </button>
           </div>
         </header>
 
