@@ -3,7 +3,7 @@
 import React, { FormEvent, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { applyNodeChanges, applyEdgeChanges, Connection, Edge, EdgeChange, MarkerType, NodeChange } from "@xyflow/react";
-import { Edit2, Play } from "lucide-react";
+import { Edit2, Play, Menu } from "lucide-react";
 
 import { useAppDispatch, useAppSelector } from "./lib/hooks";
 import { SET_LOGOUT } from "./lib/reducer/usersSlice";
@@ -40,6 +40,7 @@ export default function FlowEditorPage() {
   const [isNewNodeModalOpen, setIsNewNodeModalOpen] = useState(false);
   const [newNodeCategory, setNewNodeCategory] = useState<NodeCategory>("api");
   const [newNodeTitle, setNewNodeTitle] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Testing & execution state
   const [isTesting, setIsTesting] = useState(false);
@@ -407,6 +408,8 @@ export default function FlowEditorPage() {
         <FlowSidebar
           flows={flows}
           activeFlowId={activeFlow.id}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
           onSelectFlow={(flowId) => {
             setActiveFlowId(flowId);
             setSelectedNodeId(null);
@@ -430,6 +433,15 @@ export default function FlowEditorPage() {
           {/* Top Header Bar */}
           <header className="canvas-panel__topbar">
             <div className="canvas-panel__flow-info">
+              <button
+                type="button"
+                className="mobile-menu-btn action-icon-btn"
+                title="Open workflows menu"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                <Menu size={18} />
+              </button>
+
               <div className="flow-title-display">
                 <span className="flow-title-text">{activeFlow.name}</span>
                 <button

@@ -1,13 +1,15 @@
 "use client";
 
 import React from "react";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, X } from "lucide-react";
 import { SavedFlow } from "@/app/types/flow";
 import { WorkflowList } from "./WorkflowList";
 
 interface FlowSidebarProps {
   flows: SavedFlow[];
   activeFlowId: string;
+  isOpen?: boolean;
+  onClose?: () => void;
   onSelectFlow: (flowId: string) => void;
   onCreateFlow: () => void;
   onDuplicateFlow: (e: React.MouseEvent, flow: SavedFlow) => void;
@@ -19,6 +21,8 @@ interface FlowSidebarProps {
 export function FlowSidebar({
   flows,
   activeFlowId,
+  isOpen,
+  onClose,
   onSelectFlow,
   onCreateFlow,
   onDuplicateFlow,
@@ -27,15 +31,37 @@ export function FlowSidebar({
   onExportJson,
 }: FlowSidebarProps) {
   return (
-    <aside className="sidebar">
-      <div className="sidebar__header">
-        <div className="brand-container">
-          <div className="brand-logo">
-            <div className="brand-logo__icon">⚡</div>
-            <span className="brand-logo__name">API FLOW</span>
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {isOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={`sidebar ${isOpen ? "is-open" : ""}`}>
+        <div className="sidebar__header">
+          <div className="brand-container">
+            <div className="brand-logo">
+              <div className="brand-logo__icon">⚡</div>
+              <span className="brand-logo__name">API FLOW</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="brand-badge">PRO</span>
+              {onClose && (
+                <button
+                  type="button"
+                  className="sidebar-close-btn action-icon-btn"
+                  onClick={onClose}
+                  title="Close sidebar"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
           </div>
-          <span className="brand-badge">PRO</span>
-        </div>
 
         <div className="flow-section-heading">
           <span>Workflows ({flows.length})</span>
@@ -55,7 +81,10 @@ export function FlowSidebar({
       <WorkflowList
         flows={flows}
         activeFlowId={activeFlowId}
-        onSelectFlow={onSelectFlow}
+        onSelectFlow={(flowId) => {
+          onSelectFlow(flowId);
+          onClose?.();
+        }}
         onDuplicateFlow={onDuplicateFlow}
         onOpenEditFlow={onOpenEditFlow}
         onOpenDeleteFlow={onOpenDeleteFlow}
@@ -80,6 +109,7 @@ export function FlowSidebar({
         </button>
       </div>
     </aside>
+    </>
   );
 }
 

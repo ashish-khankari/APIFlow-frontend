@@ -1,4 +1,4 @@
-export interface UserData extends AuthToken {
+export interface UserData extends Partial<AuthToken> {
     full_name: string;
     email: string;
     company_name: string | null;

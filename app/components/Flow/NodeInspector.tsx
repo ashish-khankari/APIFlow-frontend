@@ -61,7 +61,13 @@ export function NodeInspector({
   };
 
   return (
-    <aside className="inspector-panel" aria-label="Node Inspector">
+    <>
+      <div
+        className="inspector-backdrop"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <aside className="inspector-panel" aria-label="Node Inspector">
       <div className="inspector-panel__header">
         <div className="inspector-panel__title-wrap">
           <h3>Configure API</h3>
@@ -253,6 +259,7 @@ export function NodeInspector({
         </div>
       </form>
     </aside>
+    </>
   );
 }
 

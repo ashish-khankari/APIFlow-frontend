@@ -78,6 +78,21 @@ button {
   width: 100vw;
   background: var(--bg-app);
   overflow: hidden;
+  position: relative;
+}
+
+/* Responsive Overlay Backdrops & Buttons */
+.sidebar-backdrop,
+.inspector-backdrop {
+  display: none;
+}
+
+.mobile-menu-btn {
+  display: none;
+}
+
+.sidebar-close-btn {
+  display: none;
 }
 
 /* Sidebar */
@@ -1220,6 +1235,174 @@ button {
   position: relative;
   z-index: 1;
   width: 100%;
+}
+
+/* ==========================================================================
+   Flow Editor Responsive Layout System
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  .sidebar-close-btn {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 300px;
+    max-width: 85vw;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 10px 0 40px rgba(0, 0, 0, 0.6);
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .inspector-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 400px;
+    max-width: 90vw;
+    z-index: 50;
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.6);
+  }
+}
+
+@media (max-width: 768px) {
+  .canvas-panel__topbar {
+    height: 56px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .topbar-stats {
+    display: none;
+  }
+
+  .flow-title-text {
+    font-size: 15px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .floating-toolbar {
+    top: 66px;
+    left: 12px;
+    right: 12px;
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 4px 6px;
+    gap: 6px;
+  }
+
+  .floating-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .canvas-tool-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .react-flow__minimap {
+    display: none !important;
+  }
+
+  .react-flow__controls {
+    bottom: 12px !important;
+    right: 12px !important;
+    transform: scale(0.9);
+    transform-origin: bottom right;
+  }
+
+  .flow-node-card {
+    width: 260px;
+  }
+
+  .modal-card {
+    max-width: calc(100vw - 24px);
+  }
+}
+
+@media (max-width: 480px) {
+  .canvas-panel__topbar {
+    padding: 0 10px;
+  }
+
+  .canvas-panel__flow-info {
+    gap: 6px;
+  }
+
+  .flow-title-text {
+    font-size: 13px;
+    max-width: 100px;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+  }
+
+  .topbar-actions .btn-primary {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .inspector-panel {
+    width: 100vw;
+    max-width: 100vw;
+    border-left: none;
+  }
+
+  .inspector-panel__header {
+    padding: 14px 16px;
+  }
+
+  .inspector-panel__body {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .inspector-panel__footer {
+    padding: 12px 16px;
+  }
+
+  .form-row-2 {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .custom-field-row {
+    grid-template-columns: 1fr 1.1fr 28px;
+    gap: 6px;
+  }
+
+  .floating-toolbar {
+    left: 8px;
+    right: 8px;
+    top: 64px;
+  }
+
+  .canvas-tool-btn:not(.primary) span {
+    display: none;
+  }
+
+  .canvas-tool-btn {
+    padding: 6px 8px;
+  }
 }
 
 /* Tablet & Mobile Breakpoints */
