@@ -14,11 +14,13 @@ import {
   Database,
   Globe,
 } from "lucide-react";
-import { useAppDispatch, useAppSelector } from "../lib/hooks";
+import { useAppDispatch } from "../lib/hooks";
 import { request } from "../services/request";
 import { SET_LOGIN_USER } from "../lib/reducer/usersSlice";
 import { LoginResponse } from "../types/userTypes";
 import { toast } from "../components/Toast";
+import { setAuth } from "../lib/auth";
+import { PublicRoute } from "../components/PublicRoute";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,7 +29,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const registered_user_data = useAppSelector((state) => state.auth.user);
   // Interactive Live Pipeline packet state
   const [activeStep, setActiveStep] = useState(0);
 
@@ -51,12 +52,15 @@ export default function LoginPage() {
         data: {
           email,
           password,
-        }
+        },
       });
-      toast.success('Success', loginResponse.message)
-      dispatch(SET_LOGIN_USER(loginResponse?.data));
+      toast.success('Success', loginResponse.message);
+      // Store token in localStorage
+      const { token, user } = loginResponse.data;
+      setAuth(token);
+      dispatch(SET_LOGIN_USER({ user, token }));
       setTimeout(() => {
-        router.push("/");
+        router.push('/');
         setIsLoading(false);
       }, 500);
     } catch (error: any) {
@@ -67,22 +71,8 @@ export default function LoginPage() {
     }
   };
 
-  const handleFastPass = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      const demoUser = {
-        name: "Alex Rivera",
-        email: "alex@apiflow.dev",
-        role: "YC S26 Reviewer",
-        token: "demo-yc-fastpass",
-        loggedAt: Date.now(),
-      };
-      localStorage.setItem("apiflow_user", JSON.stringify(demoUser));
-      router.push("/");
-    }, 400);
-  };
-
   return (
+    <PublicRoute>
     <div className="auth-root">
       {/* Background Animated Neon Grid & Radial Spotlights */}
       <div
@@ -578,5 +568,6 @@ export default function LoginPage() {
         </div>
       </main>
     </div>
+    </PublicRoute>
   );
 }

@@ -30,9 +30,8 @@ api.interceptors.response.use(
     (response) => response,
 
     async (error: AxiosError) => {
-        if (error.response?.status === 401) {
-            // Handle expired/invalid authentication.
-            // Usually redirect to login or trigger a refresh flow.
+        if (error.response?.status === 403) {
+            window.location.href = '/login';
         }
 
         return Promise.reject(error);

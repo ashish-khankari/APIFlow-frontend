@@ -26,12 +26,15 @@ const usersSlice = createSlice({
         },
         SET_LOGIN_USER: (state, action) => {
             state.user = action.payload.user;
+            if (action.payload.token) {
+                state.token = action.payload.token;
+            }
         },
-        SET_LOGOUT: (state, action) => {
-            state.user = action.payload;
+        SET_LOGOUT: () => {
+            return initialState;
         }
     }
 })
 
 export const { SET_USERS, SET_ONBOARDING_DETAILS, SET_LOGIN_USER, SET_LOGOUT } = usersSlice.actions;
-export default usersSlice.reducer;
+export default usersSlice.reducer;

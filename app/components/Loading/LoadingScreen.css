@@ -1,0 +1,146 @@
+/* LoadingScreen.css */
+
+* {
+  box-sizing: border-box;
+}
+
+.loading-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 45%, #1e293b 0%, #0f172a 35%, #020617 75%);
+  color: white;
+  font-family: Inter, system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.loader {
+  width: 130px;
+  height: 130px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orbit {
+  position: absolute;
+  inset: 0;
+  border: 2px solid transparent;
+  border-top-color: #60a5fa;
+  border-right-color: #a78bfa;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 10px rgba(96, 165, 250, 0.7));
+}
+
+.orbit-1 {
+  animation: spin 1.2s linear infinite;
+}
+
+.orbit-2 {
+  inset: 12px;
+  border-top-color: #c084fc;
+  border-right-color: #38bdf8;
+  animation: spinReverse 1.7s linear infinite;
+}
+
+.orbit-3 {
+  inset: 24px;
+  border-top-color: #22d3ee;
+  border-right-color: #818cf8;
+  animation: spin 2.2s linear infinite;
+}
+
+.loader-core {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa);
+  box-shadow:
+    0 0 20px rgba(96, 165, 250, 0.7),
+    0 0 50px rgba(167, 139, 250, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.loader-core span {
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  opacity: 0.9;
+}
+
+.loading-content {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.loading-content h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.loading-content p {
+  margin: 8px 0 0;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.dots {
+  display: inline-block;
+  width: 18px;
+  overflow: hidden;
+  vertical-align: bottom;
+  animation: dots 1.4s steps(4, end) infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinReverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes dots {
+  0% {
+    width: 0;
+  }
+
+  33% {
+    width: 6px;
+  }
+
+  66% {
+    width: 12px;
+  }
+
+  100% {
+    width: 18px;
+  }
+}

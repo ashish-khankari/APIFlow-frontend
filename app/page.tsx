@@ -54,6 +54,8 @@ import {
 import { useAppDispatch, useAppSelector } from "./lib/hooks";
 import { SET_LOGOUT } from "./lib/reducer/usersSlice";
 import { useRouter } from "next/navigation";
+import { clearAuth } from "./lib/auth";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 // Local Storage Key & Version
 const STORAGE_KEY = "apiflow-testing-workflows-v4";
@@ -864,7 +866,6 @@ export default function FlowEditorPage() {
   const [activeFlowId, setActiveFlowId] = useState<string>(starterFlows[0].id);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [draftNode, setDraftNode] = useState<NodeDetails | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
 
   // Modals state
   const [isEditingFlowModalOpen, setIsEditingFlowModalOpen] = useState(false);
@@ -876,9 +877,10 @@ export default function FlowEditorPage() {
   const [newNodeCategory, setNewNodeCategory] = useState<NodeCategory>("api");
   const [newNodeTitle, setNewNodeTitle] = useState("");
 
+  const currentUser = useAppSelector(state => state?.auth?.user);
 
   const dispatch = useAppDispatch();
-  
+  const router = useRouter();
 
   // Testing & execution simulation state
   const [isTesting, setIsTesting] = useState(false);
@@ -898,65 +900,6 @@ export default function FlowEditorPage() {
       setToastMessage(null);
     }, 3000);
   };
-
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role?: string } | null>(null);
-
-  // 1. LocalStorage Hydration: Ensure nodes are always loaded and never empty!
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (
-          Array.isArray(parsed) &&
-          parsed.length > 0 &&
-          Array.isArray(parsed[0].nodes) &&
-          parsed[0].nodes.length > 0
-        ) {
-          setFlows(parsed);
-          setActiveFlowId(parsed[0].id);
-        } else {
-          // If stored state is empty, initialize with starterFlows
-          setFlows(starterFlows);
-          setActiveFlowId(starterFlows[0].id);
-        }
-      } else {
-        setFlows(starterFlows);
-        setActiveFlowId(starterFlows[0].id);
-      }
-
-      const preferredFlowId = window.localStorage.getItem("apiflow_active_flow_id");
-      if (preferredFlowId) {
-        // Ensure flow exists
-        const allKnown = starterFlows;
-        setFlows((prev) => {
-          const exists = prev.some((f) => f.id === preferredFlowId);
-          if (!exists) {
-            const foundInStarter = allKnown.find((f) => f.id === preferredFlowId);
-            return foundInStarter ? [foundInStarter, ...prev] : prev;
-          }
-          return prev;
-        });
-        setActiveFlowId(preferredFlowId);
-        window.localStorage.removeItem("apiflow_active_flow_id");
-      }
-
-      const storedUser = window.localStorage.getItem("apiflow_user");
-      if (storedUser) {
-        setCurrentUser(JSON.parse(storedUser));
-      }
-    } catch {
-      setFlows(starterFlows);
-    }
-    setIsLoaded(true);
-  }, []);
-
-  // 2. LocalStorage Persistence
-  useEffect(() => {
-    if (isLoaded) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(flows));
-    }
-  }, [flows, isLoaded]);
 
   // Active Flow reference
   const activeFlow = useMemo(() => {
@@ -1347,6 +1290,7 @@ export default function FlowEditorPage() {
   };
 
   return (
+    <ProtectedRoute>
     <div className="flow-layout">
       {/* Toast Notification */}
       {toastMessage && (
@@ -1478,62 +1422,6 @@ export default function FlowEditorPage() {
             <Download size={13} />
             <span>Export Flow JSON</span>
           </button>
-
-          <div style={{ display: "flex", gap: "6px" }}>
-            <Link
-              href="/onboarding"
-              className="btn-secondary"
-              style={{
-                flex: 1,
-                textAlign: "center",
-                textDecoration: "none",
-                fontSize: "11px",
-                padding: "6px 8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "4px",
-              }}
-            >
-              <span>Onboarding</span>
-            </Link>
-
-            {currentUser ? (
-              <button
-                className="btn-secondary"
-                style={{ flex: 1, textAlign: "center", fontSize: "11px", padding: "6px 8px" }}
-                onClick={() => {
-                  window.localStorage.removeItem("apiflow_user");
-                  setCurrentUser(null);
-                  showToast("Signed out");
-                }}
-              >
-                Sign Out
-              </button>
-            ) : (
-              <Link
-                href="/login"
-                className="btn-secondary"
-                style={{
-                  flex: 1,
-                  textAlign: "center",
-                  textDecoration: "none",
-                  fontSize: "11px",
-                  padding: "6px 8px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "4px",
-                }}
-              >
-                <span>Login</span>
-              </Link>
-            )}
-          </div>
-
-          <div style={{ fontSize: "11px", color: "var(--dim-grey)", textAlign: "center" }}>
-            APIFlow Visual Testing Suite · Local Sandbox
-          </div>
         </div>
       </aside>
 
@@ -1564,11 +1452,6 @@ export default function FlowEditorPage() {
           </div>
 
           <div className="topbar-actions">
-            <div className="status-indicator">
-              <div className="status-dot" />
-              <span>Saved locally</span>
-            </div>
-
             <button
               className="btn-primary"
               disabled={isTesting || activeFlow.nodes.length === 0}
@@ -1587,7 +1470,7 @@ export default function FlowEditorPage() {
             </button>
 
             {/* Auth status & Nav */}
-            {currentUser ? (
+            {currentUser && (
               <div
                 style={{
                   display: "flex",
@@ -1610,19 +1493,20 @@ export default function FlowEditorPage() {
                   }}
                 />
                 <span style={{ color: "var(--text-white)", fontWeight: 700 }}>
-                  {currentUser.name}
+                  {currentUser.full_name}
                 </span>
               </div>
             )}
             <button
-                  className="btn-secondary"
+              className="btn-secondary"
               style={{ flex: 1, textAlign: "center", fontSize: "11px", padding: "6px 8px" }}
               onClick={() => {
-                dispatch(SET_LOGOUT(null));
+                clearAuth();
+                dispatch(SET_LOGOUT());
                 router.replace("/login");
                 showToast("Signed out");
               }}
-                >
+            >
               Sign Out
             </button>
           </div>
@@ -2045,5 +1929,6 @@ export default function FlowEditorPage() {
         </div>
       )}
     </div>
+    </ProtectedRoute>
   );
 }

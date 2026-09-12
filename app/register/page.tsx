@@ -22,6 +22,7 @@ import { SET_USERS } from "../lib/reducer/usersSlice";
 import { request } from "../services/request";
 import { toast } from "../components/Toast";
 import { UserData } from "../types/userTypes";
+import { PublicRoute } from "../components/PublicRoute";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -94,6 +95,7 @@ export default function RegisterPage() {
   }, [getOnboardingDetails]);
 
   return (
+    <PublicRoute>
     <div className="auth-root">
       {/* Background Animated Neon Grid & Radial Spotlights */}
       <div
@@ -612,5 +614,6 @@ export default function RegisterPage() {
         </div>
       </main>
     </div>
+    </PublicRoute>
   );
 }
