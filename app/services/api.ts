@@ -4,6 +4,7 @@ import axios, {
     AxiosError,
     AxiosInstance,
 } from "axios";
+import { toast } from "../components/Toast";
 
 const api: AxiosInstance = axios.create({
     baseURL: 'http://localhost:8080',
@@ -31,6 +32,7 @@ api.interceptors.response.use(
 
     async (error: AxiosError) => {
         if (error.response?.status === 403) {
+            toast.apiError("Session Expired", "Please login again", { statusCode: 403, message: 'Session Expired' });
             window.location.href = '/login';
         }
 

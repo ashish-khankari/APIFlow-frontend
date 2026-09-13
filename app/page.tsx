@@ -41,6 +41,7 @@ import { DeleteFlowModal } from "./components/Flow/modals/DeleteFlowModal";
 import { request } from "./services/request";
 import CreateNewFlow from "./components/Flow/modals/CreateFlowModal";
 import { NewNodeModal } from "./components/Flow/modals/NewNodeModal";
+import { toast } from "./components/Toast";
 
 export default function FlowEditorPage() {
   const [flows, setFlows] = useState<SavedFlow[]>([]);
@@ -180,20 +181,30 @@ export default function FlowEditorPage() {
     setIsEditingFlowModalOpen(true);
   };
 
-  const handleSaveFlowMeta = (e: FormEvent) => {
+  const handleSaveFlowMeta = async (e: FormEvent) => {
     e.preventDefault();
     if (!flowEditName.trim()) return;
-    updateActiveFlow((prev) => ({
-      ...prev,
-      flow_name: flowEditName.trim(),
-      flow_description: flowEditDesc.trim(),
-      name: flowEditName.trim(),
-      description: flowEditDesc.trim(),
-    }));
+    try {
+      const response: any = await request({
+        url: `/flow/${activeFlowId}`,
+        method: "PATCH",
+        data: {
+          flow_name: flowEditName.trim(),
+          flow_description: flowEditDesc.trim(),
+        },
+      });
+      toast.success('Success', response.message);
+      await fetchFlows();
+      setIsEditingFlowModalOpen(false);
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || "Failed to update flow";
+      toast.error(msg);
+    }
     setIsEditingFlowModalOpen(false);
     showToast("Workflow updated");
   };
 
+  // Delete Flow
   const handleDeleteFlow = async () => {
     if (activeFlowId === null) return;
     try {
@@ -382,12 +393,12 @@ export default function FlowEditorPage() {
       nodes: (flow?.nodes || []).map((n) =>
         n.id === selectedNodeId
           ? {
-              ...n,
-              data: {
-                ...draftNode,
-                status: "Completed",
-              },
-            }
+            ...n,
+            data: {
+              ...draftNode,
+              status: "Completed",
+            },
+          }
           : n
       ),
     }));
@@ -405,8 +416,7 @@ export default function FlowEditorPage() {
       const result = await simulateSingleApiTest(draftNode);
       setTestApiResult(result);
       showToast(
-        `API test executed: ${result.statusCode} ${
-          result.status === "success" ? "OK" : "ERROR"
+        `API test executed: ${result.statusCode} ${result.status === "success" ? "OK" : "ERROR"
         }`
       );
     } catch {
@@ -441,14 +451,14 @@ export default function FlowEditorPage() {
           nodes: (flow?.nodes || []).map((n) =>
             n.id === nodeId
               ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    executionState: state,
-                    actualStatus: actualStatus ?? n.data.actualStatus,
-                    latencyMs: latencyMs ?? n.data.latencyMs,
-                  },
-                }
+                ...n,
+                data: {
+                  ...n.data,
+                  executionState: state,
+                  actualStatus: actualStatus ?? n.data.actualStatus,
+                  latencyMs: latencyMs ?? n.data.latencyMs,
+                },
+              }
               : n
           ),
         }));

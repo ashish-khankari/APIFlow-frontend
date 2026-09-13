@@ -412,7 +412,7 @@ button {
 /* Floating Toolbar */
 .floating-toolbar {
   position: absolute;
-  top: 76px;
+  top: 10px;
   left: 24px;
   z-index: 15;
   display: flex;
