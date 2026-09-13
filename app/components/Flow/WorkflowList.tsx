@@ -8,7 +8,6 @@ interface WorkflowListProps {
   flows: SavedFlow[];
   activeFlowId: string;
   onSelectFlow: (flowId: string) => void;
-  onDuplicateFlow: (e: React.MouseEvent, flow: SavedFlow) => void;
   onOpenEditFlow: () => void;
   onOpenDeleteFlow: (flowId: string) => void;
 }
@@ -17,7 +16,6 @@ export function WorkflowList({
   flows,
   activeFlowId,
   onSelectFlow,
-  onDuplicateFlow,
   onOpenEditFlow,
   onOpenDeleteFlow,
 }: WorkflowListProps) {
@@ -52,14 +50,6 @@ export function WorkflowList({
             </div>
 
             <div className="flow-card__actions">
-              <button
-                type="button"
-                className="action-icon-btn"
-                title="Duplicate flow"
-                onClick={(e) => onDuplicateFlow(e, flow)}
-              >
-                <Copy size={12} />
-              </button>
               {isActive && (
                 <button
                   type="button"

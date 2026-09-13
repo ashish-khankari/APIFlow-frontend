@@ -4,7 +4,7 @@ import StoreProvider from "./StoreProvider";
 import { ToastProvider } from "./components/Toast";
 
 export const metadata: Metadata = {
-  title: "API Flow · Visual Workflow Orchestrator",
+  title: "API Flow",
   description: "High-performance visual API orchestration and automation canvas inspired by GolfSpace.",
 };
 
@@ -21,4 +21,3 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     </html>
   );
 }
-
