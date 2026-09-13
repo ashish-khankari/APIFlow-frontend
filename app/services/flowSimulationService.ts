@@ -40,7 +40,7 @@ export async function simulateSingleApiTest(
  * Simulates a sequential end-to-end execution of a workflow pipeline.
  */
 export async function simulateWorkflowExecution(
-  nodes: FlowNode[],
+  nodes: FlowNode[] = [],
   onNodeStateChange: (
     nodeId: string,
     state: NodeExecutionState,
@@ -51,6 +51,7 @@ export async function simulateWorkflowExecution(
 ): Promise<void> {
   for (let i = 0; i < nodes.length; i++) {
     const targetNode = nodes[i];
+    if (!targetNode) continue;
 
     // Transition to running state
     onNodeStateChange(targetNode.id, "running");
@@ -66,15 +67,17 @@ export async function simulateWorkflowExecution(
 /**
  * Triggers a client-side download of the active workflow as JSON.
  */
-export function exportFlowAsJson(flow: SavedFlow): void {
+export function exportFlowAsJson(flow: SavedFlow | null): void {
+  if (!flow) return;
   const dataStr =
     "data:text/json;charset=utf-8," +
     encodeURIComponent(JSON.stringify(flow, null, 2));
   const downloadAnchor = document.createElement("a");
   downloadAnchor.setAttribute("href", dataStr);
+  const fileName = flow.flow_name || flow.name || "workflow";
   downloadAnchor.setAttribute(
     "download",
-    `${flow.name.toLowerCase().replace(/\s+/g, "-")}.json`
+    `${fileName.toLowerCase().replace(/\s+/g, "-")}.json`
   );
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
@@ -84,7 +87,8 @@ export function exportFlowAsJson(flow: SavedFlow): void {
 /**
  * Computes an organized horizontal step-by-step auto layout for nodes.
  */
-export function calculateAutoLayout(nodes: FlowNode[]): NodeChange<FlowNode>[] {
+export function calculateAutoLayout(nodes?: FlowNode[]): NodeChange<FlowNode>[] {
+  if (!nodes || nodes.length === 0) return [];
   const updated = nodes.map((node, idx) => ({
     ...node,
     position: {

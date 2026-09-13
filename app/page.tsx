@@ -1,8 +1,16 @@
 "use client";
 
-import React, { FormEvent, useCallback, useMemo, useState } from "react";
+import React, { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { applyNodeChanges, applyEdgeChanges, Connection, Edge, EdgeChange, MarkerType, NodeChange } from "@xyflow/react";
+import {
+  applyNodeChanges,
+  applyEdgeChanges,
+  Connection,
+  Edge,
+  EdgeChange,
+  MarkerType,
+  NodeChange,
+} from "@xyflow/react";
 import { Edit2, Play, Menu } from "lucide-react";
 
 import { useAppDispatch, useAppSelector } from "./lib/hooks";
@@ -10,8 +18,15 @@ import { SET_LOGOUT } from "./lib/reducer/usersSlice";
 import { clearAuth } from "./lib/auth";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
-import { ApiTestResult, FlowNode, HttpMethod, NodeCategory, NodeDetails, SavedFlow } from "./types/flow";
-import { defaultNodeData, starterFlows } from "./lib/constants/flowConstants";
+import {
+  ApiTestResult,
+  FlowNode,
+  NodeCategory,
+  NodeDetails,
+  SavedFlow,
+  SavedFlowResponse,
+} from "./types/flow";
+import { defaultNodeData } from "./lib/constants/flowConstants";
 import {
   exportFlowAsJson,
   simulateSingleApiTest,
@@ -23,12 +38,13 @@ import { FlowCanvas } from "./components/Flow/FlowCanvas";
 import { NodeInspector } from "./components/Flow/NodeInspector";
 import { EditFlowModal } from "./components/Flow/modals/EditFlowModal";
 import { DeleteFlowModal } from "./components/Flow/modals/DeleteFlowModal";
+import { request } from "./services/request";
+import CreateNewFlow from "./components/Flow/modals/CreateFlowModal";
 import { NewNodeModal } from "./components/Flow/modals/NewNodeModal";
-import useToken from "./hooks/useToken";
 
 export default function FlowEditorPage() {
-  const [flows, setFlows] = useState<SavedFlow[]>(starterFlows);
-  const [activeFlowId, setActiveFlowId] = useState<string>(starterFlows[0].id);
+  const [flows, setFlows] = useState<SavedFlow[]>([]);
+  const [activeFlowId, setActiveFlowId] = useState<number | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [draftNode, setDraftNode] = useState<NodeDetails | null>(null);
 
@@ -42,6 +58,12 @@ export default function FlowEditorPage() {
   const [newNodeCategory, setNewNodeCategory] = useState<NodeCategory>("api");
   const [newNodeTitle, setNewNodeTitle] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Create Flow modal state
+  const [isNewFlowModalOpen, setIsNewFlowModalOpen] = useState(false);
+  const [newFlowName, setNewFlowName] = useState("");
+  const [newFlowDesc, setNewFlowDesc] = useState("");
+  const [isCreatingFlow, setIsCreatingFlow] = useState(false);
 
   // Testing & execution state
   const [isTesting, setIsTesting] = useState(false);
@@ -62,12 +84,15 @@ export default function FlowEditorPage() {
 
   // Active Flow reference
   const activeFlow = useMemo(() => {
-    return flows.find((f) => f.id === activeFlowId) || flows[0] || starterFlows[0];
+    if (!flows || flows.length === 0) return null;
+    if (activeFlowId === null) return flows[0];
+    return flows.find((f) => f.id === activeFlowId) || flows[0];
   }, [flows, activeFlowId]);
 
   // Helper to mutate active flow
   const updateActiveFlow = useCallback(
     (updater: (prev: SavedFlow) => SavedFlow) => {
+      if (activeFlowId === null) return;
       setFlows((currentFlows) =>
         currentFlows.map((flow) =>
           flow.id === activeFlowId
@@ -79,34 +104,79 @@ export default function FlowEditorPage() {
     [activeFlowId]
   );
 
-  // Flow CRUD Handlers
-  const handleCreateFlow = () => {
-    const newId = `flow-${Date.now()}`;
-    const newFlow: SavedFlow = {
-      id: newId,
-      name: `Pipeline #${flows.length + 1}`,
-      description: "Custom API workflow testing sequence.",
-      updatedAt: Date.now(),
-      nodes: [
-        {
-          id: `node-${Date.now()}-1`,
-          type: "apiStep",
-          position: { x: 100, y: 180 },
-          data: defaultNodeData("API 1", "api", 1),
+  // Fetch real flows from server
+  const fetchFlows = async (preferredSelectId?: number) => {
+    try {
+      const res: SavedFlowResponse = await request({
+        url: "/flow",
+        method: "GET",
+      });
+      const items = res?.data || [];
+      const normalized: SavedFlow[] = items.map((f) => ({
+        ...f,
+        nodes: f.nodes || [],
+        edges: f.edges || [],
+      }));
+      setFlows(normalized);
+
+      if (normalized.length > 0) {
+        if (preferredSelectId && normalized.some((f) => f.id === preferredSelectId)) {
+          setActiveFlowId(preferredSelectId);
+        } else if (
+          activeFlowId === null ||
+          !normalized.some((f) => f.id === activeFlowId)
+        ) {
+          setActiveFlowId(normalized[0].id);
+        }
+      } else {
+        setActiveFlowId(null);
+      }
+    } catch (error) {
+      console.error("fetchFlows error:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchFlows();
+  }, []);
+
+  // Create Flow handler
+  const handleCreateFlow = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newFlowName.trim() || !newFlowDesc.trim()) {
+      showToast("Flow name and description are required");
+      return;
+    }
+
+    try {
+      setIsCreatingFlow(true);
+      await request({
+        url: "/flow",
+        method: "POST",
+        data: {
+          flow_name: newFlowName.trim(),
+          flow_description: newFlowDesc.trim(),
         },
-      ],
-      edges: [],
-    };
-    setFlows((prev) => [newFlow, ...prev]);
-    setActiveFlowId(newId);
-    setSelectedNodeId(null);
-    setDraftNode(null);
-    showToast("New workflow created");
+      });
+
+      showToast("Flow created successfully");
+      setIsNewFlowModalOpen(false);
+      setNewFlowName("");
+      setNewFlowDesc("");
+      await fetchFlows();
+    } catch (error: any) {
+      console.error("Create flow error:", error);
+      const msg = error?.response?.data?.message || "Failed to create flow";
+      showToast(msg);
+    } finally {
+      setIsCreatingFlow(false);
+    }
   };
 
   const handleOpenEditFlow = () => {
-    setFlowEditName(activeFlow.name);
-    setFlowEditDesc(activeFlow.description || "");
+    if (!activeFlow) return;
+    setFlowEditName(activeFlow.flow_name || activeFlow.name || "");
+    setFlowEditDesc(activeFlow.flow_description || activeFlow.description || "");
     setIsEditingFlowModalOpen(true);
   };
 
@@ -115,6 +185,8 @@ export default function FlowEditorPage() {
     if (!flowEditName.trim()) return;
     updateActiveFlow((prev) => ({
       ...prev,
+      flow_name: flowEditName.trim(),
+      flow_description: flowEditDesc.trim(),
       name: flowEditName.trim(),
       description: flowEditDesc.trim(),
     }));
@@ -122,33 +194,30 @@ export default function FlowEditorPage() {
     showToast("Workflow updated");
   };
 
-  const handleDeleteFlow = () => {
-    if (flows.length <= 1) {
-      setFlows(starterFlows);
-      setActiveFlowId(starterFlows[0].id);
-    } else {
-      const remaining = flows.filter((f) => f.id !== activeFlowId);
-      setFlows(remaining);
-      setActiveFlowId(remaining[0].id);
+  const handleDeleteFlow = async () => {
+    if (activeFlowId === null) return;
+    try {
+      await request({
+        url: `/flow/${activeFlowId}`,
+        method: "DELETE",
+      });
+      showToast("Workflow deleted");
+      setIsDeleteFlowModalOpen(false);
+      setSelectedNodeId(null);
+      setDraftNode(null);
+      await fetchFlows();
+    } catch (error) {
+      console.error("Delete flow error:", error);
+      setFlows((prev) => prev.filter((f) => f.id !== activeFlowId));
+      setActiveFlowId((prev) => {
+        const remaining = flows.filter((f) => f.id !== activeFlowId);
+        return remaining.length > 0 ? remaining[0].id : null;
+      });
+      setIsDeleteFlowModalOpen(false);
+      setSelectedNodeId(null);
+      setDraftNode(null);
+      showToast("Workflow deleted");
     }
-    setIsDeleteFlowModalOpen(false);
-    setSelectedNodeId(null);
-    setDraftNode(null);
-    showToast("Workflow deleted");
-  };
-
-  const handleDuplicateFlow = (e: React.MouseEvent, flowToDup: SavedFlow) => {
-    e.stopPropagation();
-    const newId = `flow-copy-${Date.now()}`;
-    const duplicated: SavedFlow = {
-      ...flowToDup,
-      id: newId,
-      name: `${flowToDup.name} (Copy)`,
-      updatedAt: Date.now(),
-    };
-    setFlows((prev) => [...prev, duplicated]);
-    setActiveFlowId(newId);
-    showToast("Workflow duplicated");
   };
 
   // Node CRUD Handlers
@@ -156,7 +225,7 @@ export default function FlowEditorPage() {
     (changes: NodeChange<FlowNode>[]) => {
       updateActiveFlow((flow) => ({
         ...flow,
-        nodes: applyNodeChanges(changes, flow.nodes),
+        nodes: applyNodeChanges(changes, flow?.nodes || []),
       }));
     },
     [updateActiveFlow]
@@ -166,7 +235,7 @@ export default function FlowEditorPage() {
     (changes: EdgeChange[]) => {
       updateActiveFlow((flow) => ({
         ...flow,
-        edges: applyEdgeChanges(changes, flow.edges),
+        edges: applyEdgeChanges(changes, flow?.edges || []),
       }));
     },
     [updateActiveFlow]
@@ -175,7 +244,8 @@ export default function FlowEditorPage() {
   const handleConnect = useCallback(
     (connection: Connection) => {
       updateActiveFlow((flow) => {
-        const exists = flow.edges.some(
+        const currentEdges = flow?.edges || [];
+        const exists = currentEdges.some(
           (e) => e.source === connection.source && e.target === connection.target
         );
         if (exists) return flow;
@@ -191,7 +261,7 @@ export default function FlowEditorPage() {
         };
         return {
           ...flow,
-          edges: [...flow.edges, newEdge],
+          edges: [...currentEdges, newEdge],
         };
       });
       showToast("Nodes connected");
@@ -201,12 +271,15 @@ export default function FlowEditorPage() {
 
   const handleAddNextNode = useCallback(
     (sourceId: string) => {
+      if (!activeFlow) return;
       updateActiveFlow((flow) => {
-        const sourceNode = flow.nodes.find((n) => n.id === sourceId);
+        const currentNodes = flow?.nodes || [];
+        const currentEdges = flow?.edges || [];
+        const sourceNode = currentNodes.find((n) => n.id === sourceId);
         if (!sourceNode) return flow;
 
         const newId = `node-${Date.now()}`;
-        const nextStepIndex = flow.nodes.length + 1;
+        const nextStepIndex = currentNodes.length + 1;
         const nextNode: FlowNode = {
           id: newId,
           type: "apiStep",
@@ -229,20 +302,26 @@ export default function FlowEditorPage() {
 
         return {
           ...flow,
-          nodes: [...flow.nodes, nextNode],
-          edges: [...flow.edges, newEdge],
+          nodes: [...currentNodes, nextNode],
+          edges: [...currentEdges, newEdge],
         };
       });
       showToast("Connected step created");
     },
-    [updateActiveFlow, showToast]
+    [activeFlow, updateActiveFlow, showToast]
   );
 
   const handleCreateCustomNode = (e: FormEvent) => {
     e.preventDefault();
-    const title = newNodeTitle.trim() || `API ${activeFlow.nodes.length + 1}`;
+    if (!activeFlow) {
+      showToast("Please select or create a workflow first");
+      return;
+    }
+
+    const currentNodes = activeFlow.nodes || [];
+    const title = newNodeTitle.trim() || `API ${currentNodes.length + 1}`;
     const newId = `node-${Date.now()}`;
-    const lastNode = activeFlow.nodes[activeFlow.nodes.length - 1];
+    const lastNode = currentNodes[currentNodes.length - 1];
     const posX = lastNode ? lastNode.position.x + 320 : 120;
     const posY = lastNode ? lastNode.position.y : 180;
 
@@ -250,12 +329,12 @@ export default function FlowEditorPage() {
       id: newId,
       type: "apiStep",
       position: { x: posX, y: posY },
-      data: defaultNodeData(title, newNodeCategory, activeFlow.nodes.length + 1),
+      data: defaultNodeData(title, newNodeCategory, currentNodes.length + 1),
     };
 
     updateActiveFlow((flow) => ({
       ...flow,
-      nodes: [...flow.nodes, newNode],
+      nodes: [...(flow?.nodes || []), newNode],
     }));
 
     setIsNewNodeModalOpen(false);
@@ -269,8 +348,10 @@ export default function FlowEditorPage() {
     (nodeId: string) => {
       updateActiveFlow((flow) => ({
         ...flow,
-        nodes: flow.nodes.filter((n) => n.id !== nodeId),
-        edges: flow.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+        nodes: (flow?.nodes || []).filter((n) => n.id !== nodeId),
+        edges: (flow?.edges || []).filter(
+          (e) => e.source !== nodeId && e.target !== nodeId
+        ),
       }));
 
       if (selectedNodeId === nodeId) {
@@ -298,7 +379,7 @@ export default function FlowEditorPage() {
 
     updateActiveFlow((flow) => ({
       ...flow,
-      nodes: flow.nodes.map((n) =>
+      nodes: (flow?.nodes || []).map((n) =>
         n.id === selectedNodeId
           ? {
               ...n,
@@ -323,7 +404,11 @@ export default function FlowEditorPage() {
     try {
       const result = await simulateSingleApiTest(draftNode);
       setTestApiResult(result);
-      showToast(`API test executed: ${result.statusCode} ${result.status === "success" ? "OK" : "ERROR"}`);
+      showToast(
+        `API test executed: ${result.statusCode} ${
+          result.status === "success" ? "OK" : "ERROR"
+        }`
+      );
     } catch {
       showToast("API test failed");
     } finally {
@@ -333,14 +418,15 @@ export default function FlowEditorPage() {
 
   // Run Sequential Flow Execution
   const handleRunTest = async () => {
-    if (isTesting || activeFlow.nodes.length === 0) return;
+    const nodes = activeFlow?.nodes || [];
+    if (isTesting || nodes.length === 0) return;
     setIsTesting(true);
     showToast("Executing API workflow sequence...");
 
     // Reset all nodes to idle
     updateActiveFlow((flow) => ({
       ...flow,
-      nodes: flow.nodes.map((n) => ({
+      nodes: (flow?.nodes || []).map((n) => ({
         ...n,
         data: { ...n.data, executionState: "idle" },
       })),
@@ -348,11 +434,11 @@ export default function FlowEditorPage() {
 
     // Sequential execution through dummy service
     await simulateWorkflowExecution(
-      activeFlow.nodes,
+      nodes,
       (nodeId, state, actualStatus, latencyMs) => {
         updateActiveFlow((flow) => ({
           ...flow,
-          nodes: flow.nodes.map((n) =>
+          nodes: (flow?.nodes || []).map((n) =>
             n.id === nodeId
               ? {
                   ...n,
@@ -370,10 +456,11 @@ export default function FlowEditorPage() {
     );
 
     setIsTesting(false);
-    showToast(
-      `Flow passed: ${activeFlow.nodes.length}/${activeFlow.nodes.length} APIs verified`
-    );
+    showToast(`Flow passed: ${nodes.length}/${nodes.length} APIs verified`);
   };
+
+  const activeNodeCount = activeFlow?.nodes?.length || 0;
+  const activeEdgeCount = activeFlow?.edges?.length || 0;
 
   return (
     <ProtectedRoute>
@@ -391,7 +478,8 @@ export default function FlowEditorPage() {
               color: "var(--text-white)",
               padding: "10px 18px",
               borderRadius: "8px",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.6), 0 0 12px var(--neon-lime-glow)",
+              boxShadow:
+                "0 8px 24px rgba(0,0,0,0.6), 0 0 12px var(--neon-lime-glow)",
               fontSize: "13px",
               fontWeight: 600,
               display: "flex",
@@ -408,7 +496,7 @@ export default function FlowEditorPage() {
         {/* Modular Sidebar Component */}
         <FlowSidebar
           flows={flows}
-          activeFlowId={activeFlow.id}
+          activeFlowId={activeFlow?.id ?? null}
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           onSelectFlow={(flowId) => {
@@ -416,8 +504,11 @@ export default function FlowEditorPage() {
             setSelectedNodeId(null);
             setDraftNode(null);
           }}
-          onCreateFlow={handleCreateFlow}
-          onDuplicateFlow={handleDuplicateFlow}
+          onCreateFlow={() => {
+            setNewFlowName("");
+            setNewFlowDesc("");
+            setIsNewFlowModalOpen(true);
+          }}
           onOpenEditFlow={handleOpenEditFlow}
           onOpenDeleteFlow={(flowId) => {
             setActiveFlowId(flowId);
@@ -444,23 +535,27 @@ export default function FlowEditorPage() {
               </button>
 
               <div className="flow-title-display">
-                <span className="flow-title-text">{activeFlow.name}</span>
-                <button
-                  type="button"
-                  className="action-icon-btn"
-                  title="Edit flow name & description"
-                  onClick={handleOpenEditFlow}
-                >
-                  <Edit2 size={14} />
-                </button>
+                <span className="flow-title-text">
+                  {activeFlow?.flow_name || activeFlow?.name || "No Workflow Selected"}
+                </span>
+                {activeFlow && (
+                  <button
+                    type="button"
+                    className="action-icon-btn"
+                    title="Edit flow name & description"
+                    onClick={handleOpenEditFlow}
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                )}
               </div>
 
               <div className="topbar-stats">
                 <span className="stat-pill">
-                  Nodes: <strong>{activeFlow.nodes.length}</strong>
+                  Nodes: <strong>{activeNodeCount}</strong>
                 </span>
                 <span className="stat-pill">
-                  Connections: <strong>{activeFlow.edges.length}</strong>
+                  Connections: <strong>{activeEdgeCount}</strong>
                 </span>
               </div>
             </div>
@@ -469,7 +564,7 @@ export default function FlowEditorPage() {
               <button
                 type="button"
                 className="btn-primary"
-                disabled={isTesting || activeFlow.nodes.length === 0}
+                disabled={isTesting || activeNodeCount === 0}
                 onClick={handleRunTest}
                 style={{
                   display: "flex",
@@ -478,6 +573,8 @@ export default function FlowEditorPage() {
                   padding: "6px 14px",
                   fontSize: "12px",
                   fontWeight: 800,
+                  opacity: activeNodeCount === 0 ? 0.45 : 1,
+                  cursor: activeNodeCount === 0 ? "not-allowed" : "pointer",
                 }}
               >
                 <Play size={13} fill="var(--neon-lime-dark)" />
@@ -516,10 +613,9 @@ export default function FlowEditorPage() {
                 type="button"
                 className="btn-secondary"
                 style={{
-                  flex: 1,
                   textAlign: "center",
                   fontSize: "11px",
-                  padding: "6px 8px",
+                  padding: "6px 12px",
                 }}
                 onClick={() => {
                   clearAuth();
@@ -543,7 +639,7 @@ export default function FlowEditorPage() {
             onAddNextNode={handleAddNextNode}
             onDeleteNode={handleDeleteNode}
             onEditNode={(nodeId) => {
-              const node = activeFlow.nodes.find((n) => n.id === nodeId);
+              const node = activeFlow?.nodes?.find((n) => n.id === nodeId);
               if (node) handleSelectNode(node);
             }}
             onOpenNewNodeModal={() => setIsNewNodeModalOpen(true)}
@@ -583,7 +679,7 @@ export default function FlowEditorPage() {
 
         <DeleteFlowModal
           isOpen={isDeleteFlowModalOpen}
-          flowName={activeFlow.name}
+          flowName={activeFlow?.flow_name || activeFlow?.name || "this workflow"}
           onClose={() => setIsDeleteFlowModalOpen(false)}
           onConfirmDelete={handleDeleteFlow}
         />
@@ -596,6 +692,21 @@ export default function FlowEditorPage() {
           onCategoryChange={setNewNodeCategory}
           onClose={() => setIsNewNodeModalOpen(false)}
           onSubmit={handleCreateCustomNode}
+        />
+
+        <CreateNewFlow
+          isOpen={isNewFlowModalOpen}
+          title={newFlowName}
+          description={newFlowDesc}
+          isLoading={isCreatingFlow}
+          onFlowTitleChange={setNewFlowName}
+          onFlowDescriptionChange={setNewFlowDesc}
+          onClose={() => {
+            setIsNewFlowModalOpen(false);
+            setNewFlowName("");
+            setNewFlowDesc("");
+          }}
+          onSubmit={handleCreateFlow}
         />
       </div>
     </ProtectedRoute>

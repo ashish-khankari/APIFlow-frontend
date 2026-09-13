@@ -7,13 +7,13 @@ import { WorkflowList } from "./WorkflowList";
 
 interface FlowSidebarProps {
   flows: SavedFlow[];
-  activeFlowId: string;
+  activeFlowId: number | null;
   isOpen?: boolean;
   onClose?: () => void;
-  onSelectFlow: (flowId: string) => void;
+  onSelectFlow: (flowId: number) => void;
   onCreateFlow: () => void;
   onOpenEditFlow: () => void;
-  onOpenDeleteFlow: (flowId: string) => void;
+  onOpenDeleteFlow: (flowId: number) => void;
   onExportJson: () => void;
 }
 
@@ -92,6 +92,7 @@ export function FlowSidebar({
           <button
             type="button"
             className="btn-secondary"
+            disabled={!activeFlowId || flows.length === 0}
             onClick={onExportJson}
             style={{
               width: "100%",

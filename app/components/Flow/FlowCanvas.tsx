@@ -23,7 +23,7 @@ const nodeTypes = {
 };
 
 interface FlowCanvasContentProps {
-  activeFlow: SavedFlow;
+  activeFlow: SavedFlow | null;
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
@@ -53,7 +53,11 @@ function FlowCanvasContent({
 }: FlowCanvasContentProps) {
   const { fitView, zoomIn, zoomOut } = useReactFlow();
 
+  const nodeCount = activeFlow?.nodes?.length || 0;
+
   const canvasNodes = useMemo(() => {
+    if (!activeFlow?.nodes || activeFlow.nodes.length === 0) return [];
+
     return activeFlow.nodes.map((node, index) => ({
       ...node,
       data: {
@@ -65,25 +69,27 @@ function FlowCanvasContent({
       },
       selected: node.id === selectedNodeId,
     }));
-  }, [activeFlow.nodes, onAddNextNode, onDeleteNode, onEditNode, selectedNodeId]);
+  }, [activeFlow?.nodes, onAddNextNode, onDeleteNode, onEditNode, selectedNodeId]);
 
   // Clean auto-layout algorithm for nodes
   const autoLayoutNodes = useCallback(() => {
+    if (!activeFlow?.nodes || activeFlow.nodes.length === 0) return;
     const changes = calculateAutoLayout(activeFlow.nodes);
     onNodesChange(changes);
     setTimeout(() => {
       fitView({ padding: 0.25, duration: 400 });
     }, 50);
-  }, [activeFlow.nodes, onNodesChange, fitView]);
+  }, [activeFlow?.nodes, onNodesChange, fitView]);
 
   // Automatically fit nodes into view when flow changes
   useEffect(() => {
-    if (activeFlow.nodes.length > 0) {
-      setTimeout(() => {
+    if (nodeCount > 0) {
+      const timer = setTimeout(() => {
         fitView({ padding: 0.2, duration: 300 });
       }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [activeFlow.id, fitView]);
+  }, [activeFlow?.id, nodeCount, fitView]);
 
   return (
     <div className="relative w-full h-full">
@@ -93,6 +99,7 @@ function FlowCanvasContent({
           type="button"
           className="canvas-tool-btn primary"
           onClick={onOpenNewNodeModal}
+          disabled={!activeFlow}
           title="Add a new node to the canvas"
         >
           <Plus size={14} />
@@ -105,6 +112,7 @@ function FlowCanvasContent({
           type="button"
           className="canvas-tool-btn"
           onClick={autoLayoutNodes}
+          disabled={nodeCount === 0}
           title="Auto arrange nodes"
         >
           <LayoutGrid size={14} />
@@ -145,13 +153,15 @@ function FlowCanvasContent({
           type="button"
           className={`canvas-tool-btn ${isTesting ? "opacity-75 cursor-wait" : ""}`}
           onClick={onRunTest}
-          disabled={isTesting || activeFlow.nodes.length === 0}
+          disabled={isTesting || nodeCount === 0}
           title="Simulate sequential workflow execution"
           style={{
             background: isTesting ? "rgba(186, 255, 57, 0.15)" : "var(--neon-lime)",
             color: "var(--neon-lime-dark)",
             fontWeight: 800,
             boxShadow: isTesting ? "none" : "0 0 14px var(--neon-lime-glow)",
+            cursor: isTesting || nodeCount === 0 ? "not-allowed" : "pointer",
+            opacity: nodeCount === 0 ? 0.45 : 1,
           }}
         >
           <Play size={13} fill={isTesting ? "none" : "var(--neon-lime-dark)"} />
@@ -162,7 +172,7 @@ function FlowCanvasContent({
       {/* Main ReactFlow Graph Canvas */}
       <ReactFlow
         nodes={canvasNodes}
-        edges={activeFlow.edges}
+        edges={activeFlow?.edges || []}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
@@ -187,16 +197,22 @@ function FlowCanvasContent({
       </ReactFlow>
 
       {/* Empty State if Flow has 0 nodes */}
-      {activeFlow.nodes.length === 0 && (
+      {nodeCount === 0 && (
         <div className="empty-canvas-state">
           <div className="empty-canvas-icon">
             <Layers size={28} />
           </div>
           <h3>Canvas is ready</h3>
-          <p>Start building your orchestration pipeline by adding your first trigger or API node.</p>
-          <button type="button" className="btn-primary" onClick={onOpenNewNodeModal}>
-            <Plus size={14} className="inline mr-1" /> Add Starting Node
-          </button>
+          <p>
+            {activeFlow
+              ? "Start building your orchestration pipeline by adding your first trigger or API node."
+              : "No workflow selected. Select or create a workflow to begin."}
+          </p>
+          {activeFlow && (
+            <button type="button" className="btn-primary" onClick={onOpenNewNodeModal}>
+              <Plus size={14} className="inline mr-1" /> Add Starting Node
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -44,12 +44,22 @@ export type FlowNodeData = NodeDetails & {
 export type FlowNode = Node<FlowNodeData, "apiStep">;
 
 export type SavedFlow = {
-  id: string;
-  name: string;
-  description: string;
-  nodes: FlowNode[];
-  edges: Edge[];
-  updatedAt: number;
+  id: number;
+  flow_name: string;
+  flow_description: string;
+  user_id?: number;
+  created_at?: string;
+  nodes?: FlowNode[];
+  edges?: Edge[];
+  updatedAt?: number;
+  name?: string;
+  description?: string;
+};
+
+export type SavedFlowResponse = {
+  data: SavedFlow[];
+  message: string;
+  statusCode?: number;
 };
 
 export type ApiTestResult = {
