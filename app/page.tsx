@@ -24,6 +24,7 @@ import { NodeInspector } from "./components/Flow/NodeInspector";
 import { EditFlowModal } from "./components/Flow/modals/EditFlowModal";
 import { DeleteFlowModal } from "./components/Flow/modals/DeleteFlowModal";
 import { NewNodeModal } from "./components/Flow/modals/NewNodeModal";
+import useToken from "./hooks/useToken";
 
 export default function FlowEditorPage() {
   const [flows, setFlows] = useState<SavedFlow[]>(starterFlows);
