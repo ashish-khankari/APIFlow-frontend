@@ -9,13 +9,9 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
-  Zap,
   Globe,
-  Database,
-  Cpu,
-  Bell,
 } from "lucide-react";
-import { FlowNodeData, NodeCategory } from "@/app/types/flow";
+import { FlowNodeData } from "@/app/types/flow";
 
 interface SingleNodeProps {
   id: string;
@@ -24,22 +20,6 @@ interface SingleNodeProps {
 }
 
 export function SingleNode({ id, data, selected }: SingleNodeProps) {
-  const getCategoryIcon = (category: NodeCategory) => {
-    switch (category) {
-      case "trigger":
-        return <Zap size={13} className="text-sky-400" />;
-      case "api":
-        return <Globe size={13} style={{ color: "var(--neon-lime)" }} />;
-      case "transform":
-        return <Cpu size={13} className="text-purple-400" />;
-      case "database":
-        return <Database size={13} className="text-amber-400" />;
-      case "action":
-        return <Bell size={13} className="text-emerald-400" />;
-      default:
-        return <Globe size={13} />;
-    }
-  };
 
   const getStatusClass = (status: string) => {
     switch (status) {
@@ -58,18 +38,17 @@ export function SingleNode({ id, data, selected }: SingleNodeProps) {
 
   return (
     <div
-      className={`flow-node-card ${selected ? "is-selected" : ""} ${
-        data.executionState === "running" ? "ring-2 ring-sky-400 animate-pulse" : ""
-      } ${data.executionState === "failed" ? "border-rose-500" : ""}`}
+      className={`flow-node-card ${selected ? "is-selected" : ""} ${data.executionState === "running" ? "ring-2 ring-sky-400 animate-pulse" : ""
+        } ${data.executionState === "failed" ? "border-rose-500" : ""}`}
     >
       {/* Left Input Handle */}
       <Handle type="target" position={Position.Left} />
 
       {/* Card Header */}
       <div className="flow-node__header">
-        <div className={`flow-node__type-pill ${data.category}`}>
-          {getCategoryIcon(data.category)}
-          <span>{data.nodeNumber ? `API ${data.nodeNumber}` : data.category}</span>
+        <div className={`flow-node__type-pill`}>
+          <Globe size={13} style={{ color: "var(--neon-lime)" }} />
+          <span>{data.nodeNumber && `API ${data.nodeNumber}`}</span>
           {data.method && (
             <span
               style={{
@@ -82,8 +61,8 @@ export function SingleNode({ id, data, selected }: SingleNodeProps) {
                   data.method === "GET"
                     ? "var(--color-get)"
                     : data.method === "POST"
-                    ? "var(--neon-lime)"
-                    : "var(--color-put)",
+                      ? "var(--neon-lime)"
+                      : "var(--color-put)",
               }}
             >
               {data.method}
@@ -141,9 +120,6 @@ export function SingleNode({ id, data, selected }: SingleNodeProps) {
               {isConfigured ? data.status : "Not Configured"}
             </span>
           )}
-
-          <span className="node-badge badge-priority">{data.priority}</span>
-          {data.owner && <span className="node-badge badge-priority">{data.owner}</span>}
         </div>
       </div>
 

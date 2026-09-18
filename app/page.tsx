@@ -23,6 +23,8 @@ import {
   FlowNode,
   NodeCategory,
   NodeDetails,
+  NodeSlicesInterface,
+  NodeSlicesResponseInterface,
   SavedFlow,
   SavedFlowResponse,
 } from "./types/flow";
@@ -45,6 +47,7 @@ import { toast } from "./components/Toast";
 
 export default function FlowEditorPage() {
   const [flows, setFlows] = useState<SavedFlow[]>([]);
+
   const [activeFlowId, setActiveFlowId] = useState<number | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [draftNode, setDraftNode] = useState<NodeDetails | null>(null);
@@ -112,22 +115,17 @@ export default function FlowEditorPage() {
         url: "/flow",
         method: "GET",
       });
-      const items = res?.data || [];
-      const normalized: SavedFlow[] = items.map((f) => ({
-        ...f,
-        nodes: f.nodes || [],
-        edges: f.edges || [],
-      }));
-      setFlows(normalized);
+      const items: SavedFlow[] = res?.data || [];
+      setFlows(items);
 
-      if (normalized.length > 0) {
-        if (preferredSelectId && normalized.some((f) => f.id === preferredSelectId)) {
+      if (items.length > 0) {
+        if (preferredSelectId && items.some((f) => f.id === preferredSelectId)) {
           setActiveFlowId(preferredSelectId);
         } else if (
           activeFlowId === null ||
-          !normalized.some((f) => f.id === activeFlowId)
+          !items.some((f) => f.id === activeFlowId)
         ) {
-          setActiveFlowId(normalized[0].id);
+          setActiveFlowId(items[0].id);
         }
       } else {
         setActiveFlowId(null);
@@ -140,6 +138,67 @@ export default function FlowEditorPage() {
   useEffect(() => {
     fetchFlows();
   }, []);
+
+  const fetchNodesSlices = useCallback(
+    async (targetFlowId?: number) => {
+      const flowId = targetFlowId ?? activeFlowId;
+      if (!flowId) {
+        return;
+      }
+      try {
+        const res: NodeSlicesResponseInterface = await request({
+          url: `/node-slice/${flowId}`,
+          method: "GET",
+        });
+        const items = res?.data || [];
+
+        const sorted = [...items].sort(
+          (a, b) => (a?.node_order ?? 0) - (b?.node_order ?? 0)
+        );
+
+        const mappedNodes: FlowNode[] = sorted.map((slice, index) => ({
+          id: String(slice.id),
+          type: "apiStep",
+          position: { x: 80 + index * 340, y: 180 },
+          data: {
+            nodeNumber: slice?.node_order ?? index + 1,
+            label: slice?.node_title,
+            category: "api",
+            description: slice?.node_description || "",
+            status: "Completed",
+            customFields: [],
+          },
+        }));
+
+        const mappedEdges: Edge[] = mappedNodes.slice(0, -1).map((node, index) => ({
+          id: `edge-${node?.id}-${mappedNodes[index + 1].id}`,
+          source: node?.id,
+          target: mappedNodes[index + 1].id,
+          type: "smoothstep",
+          animated: true,
+          style: { stroke: "#BAFF39", strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
+        }));
+
+        setFlows((prevFlows) =>
+          prevFlows.map((flow) =>
+            flow.id === flowId
+              ? { ...flow, nodes: mappedNodes, edges: mappedEdges }
+              : flow
+          )
+        );
+      } catch (error) {
+        console.error("fetchNodesSlices error:", error);
+      }
+    },
+    [activeFlowId]
+  );
+
+  useEffect(() => {
+    if (activeFlowId !== null) {
+      fetchNodesSlices(activeFlowId);
+    }
+  }, [activeFlowId, fetchNodesSlices]);
 
   // Create Flow handler
   const handleCreateFlow = async (e: FormEvent) => {
@@ -282,42 +341,43 @@ export default function FlowEditorPage() {
 
   const handleAddNextNode = useCallback(
     (sourceId: string) => {
-      if (!activeFlow) return;
-      updateActiveFlow((flow) => {
-        const currentNodes = flow?.nodes || [];
-        const currentEdges = flow?.edges || [];
-        const sourceNode = currentNodes.find((n) => n.id === sourceId);
-        if (!sourceNode) return flow;
+      console.log('sourceId', sourceId)
+      // if (!activeFlow) return;
+      // updateActiveFlow((flow) => {
+      //   const currentNodes = flow?.nodes || [];
+      //   const currentEdges = flow?.edges || [];
+      //   const sourceNode = currentNodes.find((n) => n.id === sourceId);
+      //   if (!sourceNode) return flow;
 
-        const newId = `node-${Date.now()}`;
-        const nextStepIndex = currentNodes.length + 1;
-        const nextNode: FlowNode = {
-          id: newId,
-          type: "apiStep",
-          position: {
-            x: sourceNode.position.x + 320,
-            y: sourceNode.position.y,
-          },
-          data: defaultNodeData(`API ${nextStepIndex}`, "api", nextStepIndex),
-        };
+      //   const newId = `node-${Date.now()}`;
+      //   const nextStepIndex = currentNodes.length + 1;
+      //   const nextNode: FlowNode = {
+      //     id: newId,
+      //     type: "apiStep",
+      //     position: {
+      //       x: sourceNode.position.x + 320,
+      //       y: sourceNode.position.y,
+      //     },
+      //     data: defaultNodeData(`API ${nextStepIndex}`, "api", nextStepIndex),
+      //   };
 
-        const newEdge: Edge = {
-          id: `edge-${sourceId}-${newId}`,
-          source: sourceId,
-          target: newId,
-          type: "smoothstep",
-          animated: true,
-          style: { stroke: "#BAFF39", strokeWidth: 2 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
-        };
+      //   const newEdge: Edge = {
+      //     id: `edge-${sourceId}-${newId}`,
+      //     source: sourceId,
+      //     target: newId,
+      //     type: "smoothstep",
+      //     animated: true,
+      //     style: { stroke: "#BAFF39", strokeWidth: 2 },
+      //     markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
+      //   };
 
-        return {
-          ...flow,
-          nodes: [...currentNodes, nextNode],
-          edges: [...currentEdges, newEdge],
-        };
-      });
-      showToast("Connected step created");
+      //   return {
+      //     ...flow,
+      //     nodes: [...currentNodes, nextNode],
+      //     edges: [...currentEdges, newEdge],
+      //   };
+      // });
+      // showToast("Connected step created");
     },
     [activeFlow, updateActiveFlow, showToast]
   );
@@ -329,19 +389,30 @@ export default function FlowEditorPage() {
       return;
     }
 
-    const currentNodes = activeFlow.nodes || [];
-    const title = newNodeTitle.trim() || `API ${currentNodes.length + 1}`;
     const newId = `node-${Date.now()}`;
-    const lastNode = currentNodes[currentNodes.length - 1];
-    const posX = lastNode ? lastNode.position.x + 320 : 120;
-    const posY = lastNode ? lastNode.position.y : 180;
 
+    let currNodeNumber;
+    if (flows.length === 0) {
+      currNodeNumber = 1
+    } else {
+      currNodeNumber = flows.length + 1;
+    }
     const newNode: FlowNode = {
       id: newId,
-      type: "apiStep",
-      position: { x: posX, y: posY },
-      data: defaultNodeData(title, newNodeCategory, currentNodes.length + 1),
+      position: { x: 0, y: 0 },
+      data: {
+        nodeNumber: currNodeNumber,
+        label: 's',
+        method: "POST",
+        status: "Not started",
+        description: "Enter description here...",
+        customFields: [
+          { id: "f-1", label: "Content-Type", value: "application/json" },
+        ]
+      }
     };
+
+    console.log('newNode', newNode)
 
     updateActiveFlow((flow) => ({
       ...flow,

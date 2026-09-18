@@ -13,15 +13,18 @@ export type CustomField = {
 export type NodeExecutionState = "idle" | "running" | "success" | "failed" | "not_executed";
 
 export type NodeDetails = {
+  node_method?: HttpMethod,
+  node_base_url?: string,
+  node_end_point?: string,
+  headers?: JSON,
+  request_body?: JSON,
   nodeNumber?: number;
   label: string;
-  category: NodeCategory;
+  // category: NodeCategory;
   method?: HttpMethod;
   baseUrl?: string;
   endpoint?: string;
-  owner: string;
   status: "Not started" | "In progress" | "Completed" | "Failed";
-  priority: "Low" | "Medium" | "High" | "Critical";
   description: string;
   authToken?: string;
   expectedStatus?: number;
@@ -41,7 +44,7 @@ export type FlowNodeData = NodeDetails & {
   stepIndex?: number;
 };
 
-export type FlowNode = Node<FlowNodeData, "apiStep">;
+export type FlowNode = Node<FlowNodeData>;
 
 export type SavedFlow = {
   id: number;
@@ -68,3 +71,17 @@ export type ApiTestResult = {
   latencyMs: number;
   body: string;
 };
+
+export interface NodeSlicesInterface {
+  id: number,
+  node_title: string,
+  node_description: string,
+  flow_id: number,
+  user_id: number,
+  node_order: number,
+}
+
+export interface NodeSlicesResponseInterface {
+  message: string;
+  data: NodeSlicesInterface[];
+}
