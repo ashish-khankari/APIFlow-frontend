@@ -2,14 +2,13 @@
 
 import { FormEvent } from "react";
 import { X } from "lucide-react";
-import { NodeCategory } from "@/app/types/flow";
 
 interface NewNodeModalProps {
   isOpen: boolean;
   title: string;
-  category: NodeCategory;
+  globalTokenKey: string;
   onTitleChange: (val: string) => void;
-  onCategoryChange: (val: NodeCategory) => void;
+  onGlobalTokenKeyChange: (val: string) => void;
   onClose: () => void;
   onSubmit: (e: FormEvent) => void;
 }
@@ -17,7 +16,9 @@ interface NewNodeModalProps {
 export function NewNodeModal({
   isOpen,
   title,
+  globalTokenKey,
   onTitleChange,
+  onGlobalTokenKeyChange,
   onClose,
   onSubmit,
 }: NewNodeModalProps) {
@@ -46,6 +47,17 @@ export function NewNodeModal({
                 onChange={(e) => onTitleChange(e.target.value)}
                 placeholder="e.g. Products API, Payment Intent, etc."
                 autoFocus
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Global Token key Name</label>
+              <input
+                className="form-input"
+                value={globalTokenKey}
+                onChange={(e) => onGlobalTokenKeyChange(e.target.value)}
+                placeholder="Enter your Auth Token key Name (e.g access_token)"
+                required
               />
             </div>
           </div>

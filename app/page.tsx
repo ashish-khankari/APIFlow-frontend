@@ -21,14 +21,11 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import {
   ApiTestResult,
   FlowNode,
-  NodeCategory,
   NodeDetails,
-  NodeSlicesInterface,
   NodeSlicesResponseInterface,
   SavedFlow,
   SavedFlowResponse,
 } from "./types/flow";
-import { defaultNodeData } from "./lib/constants/flowConstants";
 import {
   exportFlowAsJson,
   simulateSingleApiTest,
@@ -59,8 +56,8 @@ export default function FlowEditorPage() {
 
   const [isDeleteFlowModalOpen, setIsDeleteFlowModalOpen] = useState(false);
   const [isNewNodeModalOpen, setIsNewNodeModalOpen] = useState(false);
-  const [newNodeCategory, setNewNodeCategory] = useState<NodeCategory>("api");
   const [newNodeTitle, setNewNodeTitle] = useState("");
+  const [globalTokenKey, setGlobalTokenKey] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Create Flow modal state
@@ -768,9 +765,9 @@ export default function FlowEditorPage() {
         <NewNodeModal
           isOpen={isNewNodeModalOpen}
           title={newNodeTitle}
-          category={newNodeCategory}
           onTitleChange={setNewNodeTitle}
-          onCategoryChange={setNewNodeCategory}
+          onGlobalTokenKeyChange={setGlobalTokenKey}
+          globalTokenKey={globalTokenKey}
           onClose={() => setIsNewNodeModalOpen(false)}
           onSubmit={handleCreateCustomNode}
         />
