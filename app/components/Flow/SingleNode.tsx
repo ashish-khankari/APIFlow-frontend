@@ -20,7 +20,6 @@ interface SingleNodeProps {
 }
 
 export function SingleNode({ id, data, selected }: SingleNodeProps) {
-
   const getStatusClass = (status: string) => {
     switch (status) {
       case "Completed":
@@ -35,6 +34,10 @@ export function SingleNode({ id, data, selected }: SingleNodeProps) {
   };
 
   const isConfigured = Boolean(data.endpoint || data.method);
+  const hasNextNode = Boolean(data.hasNextNode);
+  const titleText = data.label ?? data.node_title ?? "Untitled Node";
+  const descriptionText = data.description ?? data.node_description ?? "";
+  const statusText = data.status ?? "Not started";
 
   return (
     <div
@@ -97,9 +100,9 @@ export function SingleNode({ id, data, selected }: SingleNodeProps) {
 
       {/* Card Body */}
       <div className="flow-node__body">
-        <div className="flow-node__title">{data.label}</div>
+        <div className="flow-node__title">{titleText}</div>
         {data.endpoint && <div className="flow-node__url">{data.endpoint}</div>}
-        {data.description && <div className="flow-node__desc">{data.description}</div>}
+        {descriptionText && <div className="flow-node__desc">{descriptionText}</div>}
 
         {/* Dynamic Execution Badge or Static Status */}
         <div className="flow-node__meta-row">
@@ -116,8 +119,8 @@ export function SingleNode({ id, data, selected }: SingleNodeProps) {
               <AlertCircle size={10} /> ✕ Failed {data.actualStatus || 500}
             </span>
           ) : (
-            <span className={`node-badge ${getStatusClass(data.status)}`}>
-              {isConfigured ? data.status : "Not Configured"}
+            <span className={`node-badge ${getStatusClass(statusText)}`}>
+              {isConfigured ? statusText : "Not Configured"}
             </span>
           )}
         </div>
@@ -125,20 +128,24 @@ export function SingleNode({ id, data, selected }: SingleNodeProps) {
 
       {/* Card Footer */}
       <div className="flow-node__footer nodrag">
-        <span className="flow-node__fields-count">
-          {data.customFields?.length || 0} {data.customFields?.length === 1 ? "field" : "fields"}
-        </span>
         <button
           type="button"
           className="btn-add-next"
-          title="Append next connected step"
+          title={hasNextNode ? "This node already has a next step" : "Append next connected step"}
           onClick={(e) => {
             e.stopPropagation();
-            data.onAddNext?.(id);
+            if (!hasNextNode) {
+              data.onAddNext?.(id);
+            }
+          }}
+          disabled={hasNextNode}
+          style={{
+            opacity: hasNextNode ? 0.5 : 1,
+            cursor: hasNextNode ? "not-allowed" : "pointer",
           }}
         >
           <Plus size={12} />
-          <span>Connect Next</span>
+          <span>{hasNextNode ? "Linked" : "Connect Next"}</span>
         </button>
       </div>
 

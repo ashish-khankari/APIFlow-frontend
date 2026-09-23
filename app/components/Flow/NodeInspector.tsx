@@ -26,6 +26,8 @@ export function NodeInspector({
   isTestingSingleApi,
   testApiResult,
 }: NodeInspectorProps) {
+  const existingCustomFields = draftNode.customFields ?? [];
+
   // Handlers for custom fields inside draftNode
   const handleAddField = () => {
     const newField: CustomField = {
@@ -36,14 +38,14 @@ export function NodeInspector({
     };
     onDraftNodeChange({
       ...draftNode,
-      customFields: [...draftNode.customFields, newField],
+      customFields: [...existingCustomFields, newField],
     });
   };
 
   const handleRemoveField = (fieldId: string) => {
     onDraftNodeChange({
       ...draftNode,
-      customFields: draftNode.customFields.filter((f) => f.id !== fieldId),
+      customFields: existingCustomFields.filter((f) => f.id !== fieldId),
     });
   };
 
@@ -54,11 +56,14 @@ export function NodeInspector({
   ) => {
     onDraftNodeChange({
       ...draftNode,
-      customFields: draftNode.customFields.map((f) =>
+      customFields: existingCustomFields.map((f) =>
         f.id === fieldId ? { ...f, [key]: val } : f
       ),
     });
   };
+
+  const titleValue = draftNode.label ?? draftNode.node_title ?? "";
+  const descriptionValue = draftNode.description ?? draftNode.node_description ?? "";
 
   return (
     <>
@@ -92,9 +97,13 @@ export function NodeInspector({
               <label>API Name *</label>
               <input
                 className="form-input"
-                value={draftNode.label}
+                value={titleValue}
                 onChange={(e) =>
-                  onDraftNodeChange({ ...draftNode, label: e.target.value })
+                  onDraftNodeChange({
+                    ...draftNode,
+                    label: e.target.value,
+                    node_title: e.target.value,
+                  })
                 }
                 placeholder="e.g. Login API"
                 required
@@ -121,22 +130,6 @@ export function NodeInspector({
                   <option value="DELETE">DELETE</option>
                   <option value="PATCH">PATCH</option>
                 </select>
-              </div>
-
-              <div className="form-group">
-                <label>Expected Status</label>
-                <input
-                  type="number"
-                  className="form-input font-mono"
-                  value={draftNode.expectedStatus || 200}
-                  onChange={(e) =>
-                    onDraftNodeChange({
-                      ...draftNode,
-                      expectedStatus: Number(e.target.value),
-                    })
-                  }
-                  placeholder="200"
-                />
               </div>
             </div>
 
@@ -185,7 +178,7 @@ export function NodeInspector({
 
             {/* Dynamic Headers & Query Parameters */}
             <CustomFieldsList
-              fields={draftNode.customFields || []}
+              fields={existingCustomFields}
               onAddField={handleAddField}
               onRemoveField={handleRemoveField}
               onUpdateField={handleUpdateField}

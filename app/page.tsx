@@ -1,6 +1,12 @@
 "use client";
 
-import React, { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   applyNodeChanges,
@@ -41,6 +47,7 @@ import { request } from "./services/request";
 import CreateNewFlow from "./components/Flow/modals/CreateFlowModal";
 import { NewNodeModal } from "./components/Flow/modals/NewNodeModal";
 import { toast } from "./components/Toast";
+import { defaultNodeData } from "./lib/constants/flowConstants";
 
 export default function FlowEditorPage() {
   const [flows, setFlows] = useState<SavedFlow[]>([]);
@@ -57,19 +64,25 @@ export default function FlowEditorPage() {
   const [isDeleteFlowModalOpen, setIsDeleteFlowModalOpen] = useState(false);
   const [isNewNodeModalOpen, setIsNewNodeModalOpen] = useState(false);
   const [newNodeTitle, setNewNodeTitle] = useState("");
-  const [globalTokenKey, setGlobalTokenKey] = useState("");
+  const [newNodeDescription, setNewNodeDescription] = useState("");
+  const [pendingParentNodeId, setPendingParentNodeId] = useState<string | null>(
+    null,
+  );
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Create Flow modal state
   const [isNewFlowModalOpen, setIsNewFlowModalOpen] = useState(false);
   const [newFlowName, setNewFlowName] = useState("");
   const [newFlowDesc, setNewFlowDesc] = useState("");
+  const [newFlowTokenKey, setNewFlowTokenKey] = useState("");
   const [isCreatingFlow, setIsCreatingFlow] = useState(false);
 
   // Testing & execution state
   const [isTesting, setIsTesting] = useState(false);
   const [isTestingSingleApi, setIsTestingSingleApi] = useState(false);
-  const [testApiResult, setTestApiResult] = useState<ApiTestResult | null>(null);
+  const [testApiResult, setTestApiResult] = useState<ApiTestResult | null>(
+    null,
+  );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const currentUser = useAppSelector((state) => state?.auth?.user);
@@ -98,42 +111,65 @@ export default function FlowEditorPage() {
         currentFlows.map((flow) =>
           flow.id === activeFlowId
             ? { ...updater(flow), updatedAt: Date.now() }
-            : flow
-        )
+            : flow,
+        ),
       );
     },
-    [activeFlowId]
+    [activeFlowId],
   );
 
   // Fetch real flows from server
-  const fetchFlows = async (preferredSelectId?: number) => {
-    try {
-      const res: SavedFlowResponse = await request({
-        url: "/flow",
-        method: "GET",
-      });
-      const items: SavedFlow[] = res?.data || [];
-      setFlows(items);
+  const fetchFlows = useCallback(
+    async (preferredSelectId?: number) => {
+      try {
+        const res: SavedFlowResponse = await request({
+          url: "/flow",
+          method: "GET",
+        });
+        const items: SavedFlow[] = res?.data || [];
+        setFlows(items);
 
-      if (items.length > 0) {
-        if (preferredSelectId && items.some((f) => f.id === preferredSelectId)) {
-          setActiveFlowId(preferredSelectId);
-        } else if (
-          activeFlowId === null ||
-          !items.some((f) => f.id === activeFlowId)
-        ) {
-          setActiveFlowId(items[0].id);
+        if (items.length > 0) {
+          if (
+            preferredSelectId &&
+            items.some((f) => f.id === preferredSelectId)
+          ) {
+            setActiveFlowId(preferredSelectId);
+          } else if (
+            activeFlowId === null ||
+            !items.some((f) => f.id === activeFlowId)
+          ) {
+            setActiveFlowId(items[0].id);
+          }
+        } else {
+          setActiveFlowId(null);
         }
-      } else {
-        setActiveFlowId(null);
+      } catch (error) {
+        console.error("fetchFlows error:", error);
       }
-    } catch (error) {
-      console.error("fetchFlows error:", error);
-    }
-  };
+    },
+    [activeFlowId],
+  );
 
   useEffect(() => {
     fetchFlows();
+  }, [fetchFlows]);
+
+  const buildFlowEdges = useCallback((nodes: FlowNode[]): Edge[] => {
+    if (nodes.length < 2) return [];
+
+    return nodes.slice(0, -1).map((node, index) => {
+      const nextNode = nodes[index + 1];
+      return {
+        id: `edge-${node.id}-${nextNode.id}`,
+        source: node.id,
+        target: nextNode.id,
+        type: "smoothstep",
+        animated: true,
+        style: { stroke: "#BAFF39", strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
+      };
+    });
   }, []);
 
   const fetchNodesSlices = useCallback(
@@ -144,51 +180,41 @@ export default function FlowEditorPage() {
       }
       try {
         const res: NodeSlicesResponseInterface = await request({
-          url: `/node-slice/${flowId}`,
+          url: `/node/${flowId}`,
           method: "GET",
         });
+
         const items = res?.data || [];
 
-        const sorted = [...items].sort(
-          (a, b) => (a?.node_order ?? 0) - (b?.node_order ?? 0)
-        );
-
-        const mappedNodes: FlowNode[] = sorted.map((slice, index) => ({
+        const mappedNodes: FlowNode[] = items.map((slice, index) => ({
           id: String(slice.id),
           type: "apiStep",
           position: { x: 80 + index * 340, y: 180 },
           data: {
-            nodeNumber: slice?.node_order ?? index + 1,
-            label: slice?.node_title,
-            category: "api",
-            description: slice?.node_description || "",
-            status: "Completed",
+            nodeNumber: slice?.node_order,
+            node_title: slice?.node_title,
+            node_description: slice?.node_description,
+            status: "Not started",
             customFields: [],
           },
-        }));
-
-        const mappedEdges: Edge[] = mappedNodes.slice(0, -1).map((node, index) => ({
-          id: `edge-${node?.id}-${mappedNodes[index + 1].id}`,
-          source: node?.id,
-          target: mappedNodes[index + 1].id,
-          type: "smoothstep",
-          animated: true,
-          style: { stroke: "#BAFF39", strokeWidth: 2 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
         }));
 
         setFlows((prevFlows) =>
           prevFlows.map((flow) =>
             flow.id === flowId
-              ? { ...flow, nodes: mappedNodes, edges: mappedEdges }
-              : flow
-          )
+              ? {
+                ...flow,
+                nodes: mappedNodes,
+                edges: buildFlowEdges(mappedNodes),
+              }
+              : flow,
+          ),
         );
       } catch (error) {
         console.error("fetchNodesSlices error:", error);
       }
     },
-    [activeFlowId]
+    [activeFlowId, buildFlowEdges],
   );
 
   useEffect(() => {
@@ -200,8 +226,8 @@ export default function FlowEditorPage() {
   // Create Flow handler
   const handleCreateFlow = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newFlowName.trim() || !newFlowDesc.trim()) {
-      showToast("Flow name and description are required");
+    if (!newFlowName.trim() || !newFlowDesc.trim() || !newFlowTokenKey.trim()) {
+      showToast("Flow name, description, and token key are required");
       return;
     }
 
@@ -213,6 +239,7 @@ export default function FlowEditorPage() {
         data: {
           flow_name: newFlowName.trim(),
           flow_description: newFlowDesc.trim(),
+          token_key: newFlowTokenKey.trim(),
         },
       });
 
@@ -220,6 +247,7 @@ export default function FlowEditorPage() {
       setIsNewFlowModalOpen(false);
       setNewFlowName("");
       setNewFlowDesc("");
+      setNewFlowTokenKey("");
       await fetchFlows();
     } catch (error: any) {
       console.error("Create flow error:", error);
@@ -233,7 +261,9 @@ export default function FlowEditorPage() {
   const handleOpenEditFlow = () => {
     if (!activeFlow) return;
     setFlowEditName(activeFlow.flow_name || activeFlow.name || "");
-    setFlowEditDesc(activeFlow.flow_description || activeFlow.description || "");
+    setFlowEditDesc(
+      activeFlow.flow_description || activeFlow.description || "",
+    );
     setIsEditingFlowModalOpen(true);
   };
 
@@ -249,7 +279,7 @@ export default function FlowEditorPage() {
           flow_description: flowEditDesc.trim(),
         },
       });
-      toast.success('Success', response.message);
+      toast.success("Success", response.message);
       await fetchFlows();
       setIsEditingFlowModalOpen(false);
     } catch (error: any) {
@@ -295,7 +325,7 @@ export default function FlowEditorPage() {
         nodes: applyNodeChanges(changes, flow?.nodes || []),
       }));
     },
-    [updateActiveFlow]
+    [updateActiveFlow],
   );
 
   const handleEdgesChange = useCallback(
@@ -305,7 +335,7 @@ export default function FlowEditorPage() {
         edges: applyEdgeChanges(changes, flow?.edges || []),
       }));
     },
-    [updateActiveFlow]
+    [updateActiveFlow],
   );
 
   const handleConnect = useCallback(
@@ -313,9 +343,17 @@ export default function FlowEditorPage() {
       updateActiveFlow((flow) => {
         const currentEdges = flow?.edges || [];
         const exists = currentEdges.some(
-          (e) => e.source === connection.source && e.target === connection.target
+          (e) =>
+            e.source === connection.source && e.target === connection.target,
         );
         if (exists) return flow;
+
+        const hasOutgoingEdge = currentEdges.some(
+          (e) => e.source === connection.source,
+        );
+        if (hasOutgoingEdge) {
+          return flow;
+        }
 
         const newEdge: Edge = {
           id: `edge-${connection.source}-${connection.target}`,
@@ -333,113 +371,140 @@ export default function FlowEditorPage() {
       });
       showToast("Nodes connected");
     },
-    [updateActiveFlow, showToast]
+    [updateActiveFlow, showToast],
   );
 
   const handleAddNextNode = useCallback(
     (sourceId: string) => {
-      console.log('sourceId', sourceId)
-      // if (!activeFlow) return;
-      // updateActiveFlow((flow) => {
-      //   const currentNodes = flow?.nodes || [];
-      //   const currentEdges = flow?.edges || [];
-      //   const sourceNode = currentNodes.find((n) => n.id === sourceId);
-      //   if (!sourceNode) return flow;
+      if (!activeFlow) return;
 
-      //   const newId = `node-${Date.now()}`;
-      //   const nextStepIndex = currentNodes.length + 1;
-      //   const nextNode: FlowNode = {
-      //     id: newId,
-      //     type: "apiStep",
-      //     position: {
-      //       x: sourceNode.position.x + 320,
-      //       y: sourceNode.position.y,
-      //     },
-      //     data: defaultNodeData(`API ${nextStepIndex}`, "api", nextStepIndex),
-      //   };
+      const currentNodes = activeFlow.nodes || [];
+      const sourceNode = currentNodes.find((n) => n.id === sourceId);
+      if (!sourceNode) return;
 
-      //   const newEdge: Edge = {
-      //     id: `edge-${sourceId}-${newId}`,
-      //     source: sourceId,
-      //     target: newId,
-      //     type: "smoothstep",
-      //     animated: true,
-      //     style: { stroke: "#BAFF39", strokeWidth: 2 },
-      //     markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
-      //   };
+      const hasOutgoingEdge = (activeFlow.edges || []).some(
+        (edge) => edge.source === sourceId,
+      );
+      if (hasOutgoingEdge) {
+        showToast("This node already has a next step");
+        return;
+      }
 
-      //   return {
-      //     ...flow,
-      //     nodes: [...currentNodes, nextNode],
-      //     edges: [...currentEdges, newEdge],
-      //   };
-      // });
-      // showToast("Connected step created");
+      setPendingParentNodeId(sourceId);
+      setIsNewNodeModalOpen(true);
+      showToast("Add the next node details");
     },
-    [activeFlow, updateActiveFlow, showToast]
+    [activeFlow, showToast],
   );
 
-  const handleCreateCustomNode = (e: FormEvent) => {
+  const handleCreateCustomNode = async (e: FormEvent) => {
     e.preventDefault();
-    if (!activeFlow) {
+
+    if (!activeFlowId) {
       showToast("Please select or create a workflow first");
       return;
     }
 
-    const newId = `node-${Date.now()}`;
+    const trimmedTitle = newNodeTitle.trim();
+    const trimmedDescription = newNodeDescription.trim();
 
-    let currNodeNumber;
-    if (flows.length === 0) {
-      currNodeNumber = 1
-    } else {
-      currNodeNumber = flows.length + 1;
+    if (!trimmedTitle || !trimmedDescription) {
+      showToast("Node title and description are required");
+      return;
     }
-    const newNode: FlowNode = {
-      id: newId,
-      position: { x: 0, y: 0 },
-      data: {
-        nodeNumber: currNodeNumber,
-        label: 's',
+
+    try {
+      await request({
         method: "POST",
-        status: "Not started",
-        description: "Enter description here...",
-        customFields: [
-          { id: "f-1", label: "Content-Type", value: "application/json" },
-        ]
+        url: "/node",
+        data: {
+          node_title: trimmedTitle,
+          node_description: trimmedDescription,
+          flow_id: activeFlowId,
+        },
+      });
+
+      const parentId = pendingParentNodeId;
+
+      if (parentId) {
+        updateActiveFlow((flow) => {
+          const currentNodes = flow?.nodes || [];
+          const currentEdges = flow?.edges || [];
+          const sourceNode = currentNodes.find((n) => n.id === parentId);
+          if (!sourceNode) return flow;
+
+          const newId = `node-${Date.now()}`;
+          const nextStepIndex = currentNodes.length + 1;
+          const nextNode: FlowNode = {
+            id: newId,
+            type: "apiStep",
+            position: {
+              x: sourceNode.position.x + 320,
+              y: sourceNode.position.y,
+            },
+            data: defaultNodeData(`API ${nextStepIndex}`, nextStepIndex),
+          };
+
+          const newEdge: Edge = {
+            id: `edge-${parentId}-${newId}`,
+            source: parentId,
+            target: newId,
+            type: "smoothstep",
+            animated: true,
+            style: { stroke: "#BAFF39", strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
+          };
+
+          return {
+            ...flow,
+            nodes: [...currentNodes, nextNode],
+            edges: [...currentEdges, newEdge],
+          };
+        });
       }
-    };
 
-    console.log('newNode', newNode)
-
-    updateActiveFlow((flow) => ({
-      ...flow,
-      nodes: [...(flow?.nodes || []), newNode],
-    }));
-
-    setIsNewNodeModalOpen(false);
-    setNewNodeTitle("");
-    setSelectedNodeId(newId);
-    setDraftNode(newNode.data);
-    showToast("Node added");
+      setNewNodeTitle("");
+      setNewNodeDescription("");
+      setPendingParentNodeId(null);
+      setIsNewNodeModalOpen(false);
+      showToast(
+        parentId ? "Node connected successfully" : "Node created successfully",
+      );
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || "Failed to create node";
+      showToast(msg);
+      setNewNodeTitle("");
+      setNewNodeDescription("");
+      setPendingParentNodeId(null);
+      setIsNewNodeModalOpen(false);
+    }
   };
 
   const handleDeleteNode = useCallback(
-    (nodeId: string) => {
-      updateActiveFlow((flow) => ({
-        ...flow,
-        nodes: (flow?.nodes || []).filter((n) => n.id !== nodeId),
-        edges: (flow?.edges || []).filter(
-          (e) => e.source !== nodeId && e.target !== nodeId
-        ),
-      }));
+    async (nodeId: string) => {
+      try {
+        await request({
+          url: `/node/${activeFlowId}/${nodeId}`,
+          method: "DELETE",
+        });
+        updateActiveFlow((flow) => ({
+          ...flow,
+          nodes: (flow?.nodes || []).filter((n) => n.id !== nodeId),
+          edges: (flow?.edges || []).filter(
+            (e) => e.source !== nodeId && e.target !== nodeId,
+          ),
+        }));
 
-      if (selectedNodeId === nodeId) {
-        setSelectedNodeId(null);
-        setDraftNode(null);
+        if (selectedNodeId === nodeId) {
+          setSelectedNodeId(null);
+          setDraftNode(null);
+        }
+        toast.success("Success", "Node Deleted");
+      } catch (error: any) {
+        toast.error("Error", error?.message);
       }
-      showToast("Node removed");
     },
-    [updateActiveFlow, selectedNodeId, showToast]
+    [updateActiveFlow, selectedNodeId, activeFlowId],
   );
 
   // Inspector Panel Selection
@@ -447,7 +512,17 @@ export default function FlowEditorPage() {
     setSelectedNodeId(node.id);
     setDraftNode({
       ...node.data,
-      customFields: node.data.customFields ? [...node.data.customFields] : [],
+      nodeNumber: node.data?.nodeNumber,
+      label: node.data?.label ?? node.data?.node_title ?? "",
+      node_title: node.data?.node_title ?? node.data?.label ?? "",
+      description: node.data?.description ?? node.data?.node_description ?? "",
+      node_description:
+        node.data?.node_description ?? node.data?.description ?? "",
+      method: node.data?.method,
+      baseUrl: node.data?.baseUrl,
+      endpoint: node.data?.endpoint,
+      status: node.data?.status ?? "Not started",
+      customFields: node.data?.customFields ?? [],
     });
     setTestApiResult(null);
   }, []);
@@ -467,7 +542,7 @@ export default function FlowEditorPage() {
               status: "Completed",
             },
           }
-          : n
+          : n,
       ),
     }));
 
@@ -485,7 +560,7 @@ export default function FlowEditorPage() {
       setTestApiResult(result);
       showToast(
         `API test executed: ${result.statusCode} ${result.status === "success" ? "OK" : "ERROR"
-        }`
+        }`,
       );
     } catch {
       showToast("API test failed");
@@ -527,10 +602,10 @@ export default function FlowEditorPage() {
                   latencyMs: latencyMs ?? n.data.latencyMs,
                 },
               }
-              : n
+              : n,
           ),
         }));
-      }
+      },
     );
 
     setIsTesting(false);
@@ -614,7 +689,9 @@ export default function FlowEditorPage() {
 
               <div className="flow-title-display">
                 <span className="flow-title-text">
-                  {activeFlow?.flow_name || activeFlow?.name || "No Workflow Selected"}
+                  {activeFlow?.flow_name ||
+                    activeFlow?.name ||
+                    "No Workflow Selected"}
                 </span>
                 {activeFlow && (
                   <button
@@ -720,7 +797,10 @@ export default function FlowEditorPage() {
               const node = activeFlow?.nodes?.find((n) => n.id === nodeId);
               if (node) handleSelectNode(node);
             }}
-            onOpenNewNodeModal={() => setIsNewNodeModalOpen(true)}
+            onOpenNewNodeModal={() => {
+              setPendingParentNodeId(null);
+              setIsNewNodeModalOpen(true);
+            }}
             selectedNodeId={selectedNodeId}
             isTesting={isTesting}
             onRunTest={handleRunTest}
@@ -757,7 +837,9 @@ export default function FlowEditorPage() {
 
         <DeleteFlowModal
           isOpen={isDeleteFlowModalOpen}
-          flowName={activeFlow?.flow_name || activeFlow?.name || "this workflow"}
+          flowName={
+            activeFlow?.flow_name || activeFlow?.name || "this workflow"
+          }
           onClose={() => setIsDeleteFlowModalOpen(false)}
           onConfirmDelete={handleDeleteFlow}
         />
@@ -765,10 +847,15 @@ export default function FlowEditorPage() {
         <NewNodeModal
           isOpen={isNewNodeModalOpen}
           title={newNodeTitle}
+          description={newNodeDescription}
           onTitleChange={setNewNodeTitle}
-          onGlobalTokenKeyChange={setGlobalTokenKey}
-          globalTokenKey={globalTokenKey}
-          onClose={() => setIsNewNodeModalOpen(false)}
+          onDescriptionChange={setNewNodeDescription}
+          onClose={() => {
+            setIsNewNodeModalOpen(false);
+            setNewNodeTitle("");
+            setNewNodeDescription("");
+            setPendingParentNodeId(null);
+          }}
           onSubmit={handleCreateCustomNode}
         />
 
@@ -776,13 +863,16 @@ export default function FlowEditorPage() {
           isOpen={isNewFlowModalOpen}
           title={newFlowName}
           description={newFlowDesc}
+          tokenKey={newFlowTokenKey}
           isLoading={isCreatingFlow}
           onFlowTitleChange={setNewFlowName}
           onFlowDescriptionChange={setNewFlowDesc}
+          onTokenKeyChange={setNewFlowTokenKey}
           onClose={() => {
             setIsNewFlowModalOpen(false);
             setNewFlowName("");
             setNewFlowDesc("");
+            setNewFlowTokenKey("");
           }}
           onSubmit={handleCreateFlow}
         />

@@ -7,10 +7,12 @@ export interface CreateNewFlowProps {
   isOpen: boolean;
   title: string;
   description: string;
+  tokenKey: string;
   isLoading?: boolean;
   onClose: () => void;
   onFlowTitleChange: (val: string) => void;
   onFlowDescriptionChange: (val: string) => void;
+  onTokenKeyChange: (val: string) => void;
   onSubmit: (e: FormEvent) => void;
 }
 
@@ -18,10 +20,12 @@ export function CreateNewFlow({
   isOpen,
   title,
   description,
+  tokenKey,
   isLoading = false,
   onClose,
   onFlowTitleChange,
   onFlowDescriptionChange,
+  onTokenKeyChange,
   onSubmit,
 }: CreateNewFlowProps) {
   if (!isOpen) return null;
@@ -88,6 +92,20 @@ export function CreateNewFlow({
                 required
               />
             </div>
+
+            <div className="form-group">
+              <label htmlFor="create-flow-token-key">
+                Token Key <span style={{ color: "var(--neon-lime)" }}>*</span>
+              </label>
+              <input
+                id="create-flow-token-key"
+                className="form-input"
+                value={tokenKey}
+                onChange={(e) => onTokenKeyChange(e.target.value)}
+                placeholder="e.g access_token"
+                required
+              />
+            </div>
           </div>
 
           <div className="modal-footer">
@@ -102,7 +120,7 @@ export function CreateNewFlow({
             <button
               type="submit"
               className="btn-primary"
-              disabled={isLoading || !title.trim() || !description.trim()}
+              disabled={isLoading || !title.trim() || !description.trim() || !tokenKey.trim()}
               style={{
                 display: "inline-flex",
                 alignItems: "center",

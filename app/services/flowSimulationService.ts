@@ -27,7 +27,7 @@ export async function simulateSingleApiTest(
         success: isSuccess,
         endpoint: draftNode.endpoint || "/api",
         method: draftNode.method || "POST",
-        message: `${draftNode.label} passed test assertions`,
+        message: `${draftNode.node_title} passed test assertions`,
         timestamp: new Date().toISOString(),
       },
       null,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -60,16 +60,19 @@ function FlowCanvasContent({
 
     return activeFlow.nodes.map((node, index) => ({
       ...node,
+      type: node.type ?? "apiStep",
+      position: node.position ?? { x: 0, y: 0 },
       data: {
         ...node.data,
         onAddNext: onAddNextNode,
         onDelete: onDeleteNode,
         onEdit: onEditNode,
         stepIndex: index + 1,
+        hasNextNode: (activeFlow?.edges || []).some((edge) => edge.source === node.id),
       },
       selected: node.id === selectedNodeId,
     }));
-  }, [activeFlow?.nodes, onAddNextNode, onDeleteNode, onEditNode, selectedNodeId]);
+  }, [activeFlow, onAddNextNode, onDeleteNode, onEditNode, selectedNodeId]);
 
   // Clean auto-layout algorithm for nodes
   const autoLayoutNodes = useCallback(() => {
@@ -79,7 +82,7 @@ function FlowCanvasContent({
     setTimeout(() => {
       fitView({ padding: 0.25, duration: 400 });
     }, 50);
-  }, [activeFlow?.nodes, onNodesChange, fitView]);
+  }, [activeFlow, onNodesChange, fitView]);
 
   // Automatically fit nodes into view when flow changes
   useEffect(() => {
@@ -156,7 +159,9 @@ function FlowCanvasContent({
           disabled={isTesting || nodeCount === 0}
           title="Simulate sequential workflow execution"
           style={{
-            background: isTesting ? "rgba(186, 255, 57, 0.15)" : "var(--neon-lime)",
+            background: isTesting
+              ? "rgba(186, 255, 57, 0.15)"
+              : "var(--neon-lime)",
             color: "var(--neon-lime-dark)",
             fontWeight: 800,
             boxShadow: isTesting ? "none" : "0 0 14px var(--neon-lime-glow)",
@@ -209,7 +214,11 @@ function FlowCanvasContent({
               : "No workflow selected. Select or create a workflow to begin."}
           </p>
           {activeFlow && (
-            <button type="button" className="btn-primary" onClick={onOpenNewNodeModal}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={onOpenNewNodeModal}
+            >
               <Plus size={14} className="inline mr-1" /> Add Starting Node
             </button>
           )}

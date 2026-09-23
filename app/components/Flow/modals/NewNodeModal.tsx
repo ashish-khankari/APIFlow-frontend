@@ -6,9 +6,9 @@ import { X } from "lucide-react";
 interface NewNodeModalProps {
   isOpen: boolean;
   title: string;
-  globalTokenKey: string;
+  description: string;
   onTitleChange: (val: string) => void;
-  onGlobalTokenKeyChange: (val: string) => void;
+  onDescriptionChange: (val: string) => void;
   onClose: () => void;
   onSubmit: (e: FormEvent) => void;
 }
@@ -16,9 +16,9 @@ interface NewNodeModalProps {
 export function NewNodeModal({
   isOpen,
   title,
-  globalTokenKey,
+  description,
   onTitleChange,
-  onGlobalTokenKeyChange,
+  onDescriptionChange,
   onClose,
   onSubmit,
 }: NewNodeModalProps) {
@@ -40,7 +40,7 @@ export function NewNodeModal({
         <form onSubmit={onSubmit}>
           <div className="modal-body">
             <div className="form-group">
-              <label>API Node Title</label>
+              <label>Node Title</label>
               <input
                 className="form-input"
                 value={title}
@@ -48,16 +48,19 @@ export function NewNodeModal({
                 placeholder="e.g. Products API, Payment Intent, etc."
                 autoFocus
                 required
+                name="node_title"
               />
             </div>
             <div className="form-group">
-              <label>Global Token key Name</label>
-              <input
-                className="form-input"
-                value={globalTokenKey}
-                onChange={(e) => onGlobalTokenKeyChange(e.target.value)}
-                placeholder="Enter your Auth Token key Name (e.g access_token)"
+              <label>Node Description</label>
+              <textarea
+                className="form-textarea"
+                rows={3}
+                value={description}
+                onChange={(e) => onDescriptionChange(e.target.value)}
+                placeholder="Describe what this node does"
                 required
+                name="node_description"
               />
             </div>
           </div>

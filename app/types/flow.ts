@@ -19,17 +19,19 @@ export type NodeDetails = {
   headers?: JSON,
   request_body?: JSON,
   nodeNumber?: number;
-  label: string;
+  node_title?: string;
+  label?: string;
   // category: NodeCategory;
   method?: HttpMethod;
   baseUrl?: string;
   endpoint?: string;
-  status: "Not started" | "In progress" | "Completed" | "Failed";
-  description: string;
+  status?: "Not started" | "In progress" | "Completed" | "Failed";
+  node_description?: string;
+  description?: string;
   authToken?: string;
   expectedStatus?: number;
   requestBody?: string;
-  customFields: CustomField[];
+  customFields?: CustomField[];
 
   // Runtime Execution
   executionState?: NodeExecutionState;
@@ -42,6 +44,7 @@ export type FlowNodeData = NodeDetails & {
   onDelete?: (nodeId: string) => void;
   onEdit?: (nodeId: string) => void;
   stepIndex?: number;
+  hasNextNode?: boolean;
 };
 
 export type FlowNode = Node<FlowNodeData>;

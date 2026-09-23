@@ -1,23 +1,18 @@
-import { NodeCategory, NodeDetails } from "@/app/types/flow";
+import { NodeDetails } from "@/app/types/flow";
 
 
 export function defaultNodeData(
-  label: string,
-  category: NodeCategory = "api",
+  node_title: string,
   stepNum?: number
 ): NodeDetails {
   return {
     nodeNumber: stepNum,
-    label,
-    category,
+    node_title,
     method: "POST",
     status: "Not started",
-    description: "Enter description here...",
+    node_description: "Enter description here...",
     expectedStatus: 200,
     requestBody: '{\n  "test": true\n}',
-    customFields: [
-      { id: "f-1", label: "Content-Type", value: "application/json" },
-    ],
   };
 }
 
