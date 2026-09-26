@@ -37,10 +37,18 @@ export function EditFlowModal({
             <X size={18} />
           </button>
         </div>
-        <form onSubmit={onSubmit}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!name.trim()) return;
+            onSubmit(e);
+          }}
+        >
           <div className="modal-body">
             <div className="form-group">
-              <label>Workflow Name</label>
+              <label>
+                Workflow Name <span style={{ color: "var(--neon-lime)" }}>*</span>
+              </label>
               <input
                 className="form-input"
                 value={name}
@@ -69,7 +77,15 @@ export function EditFlowModal({
             >
               Cancel
             </button>
-            <button type="submit" className="btn-primary">
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={!name.trim()}
+              style={{
+                opacity: !name.trim() ? 0.5 : 1,
+                cursor: !name.trim() ? "not-allowed" : "pointer",
+              }}
+            >
               Update Workflow
             </button>
           </div>

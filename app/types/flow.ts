@@ -76,15 +76,72 @@ export type ApiTestResult = {
 };
 
 export interface NodeSlicesInterface {
-  id: number,
-  node_title: string,
-  node_description: string,
-  flow_id: number,
-  user_id: number,
-  node_order: number,
+  id: number;
+  node_title: string;
+  node_description: string;
+  flow_id: number;
+  user_id: number;
+  node_order: number;
+  created_at?: string;
+  node_api_id?: number | null;
+  node_api_method?: HttpMethod | null;
+  node_api_base_url?: string | null;
+  node_api_end_point?: string | null;
+  node_api_token?: string | null;
+  node_api_headers?: Record<string, any> | null;
+  node_api_request_body?: any;
+  node_api_query?: Record<string, any> | null;
+  node_api_params?: Record<string, any> | null;
 }
 
 export interface NodeSlicesResponseInterface {
   message: string;
   data: NodeSlicesInterface[];
+}
+
+export interface ExecutionRunSummary {
+  id?: number;
+  run_id: string;
+  flow_id?: number;
+  user_id?: number;
+  status: "completed" | "failed";
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface ExecutionStepLog {
+  id?: number;
+  run_id?: string;
+  node_id: number;
+  node_title: string;
+  node_order: number;
+  status: "success" | "failed";
+  status_code: number;
+  response_body: any;
+  duration_ms: number;
+  error_message: string | null;
+  executed_at: string;
+}
+
+export interface ExecutionRunDetail extends ExecutionRunSummary {
+  steps: ExecutionStepLog[];
+}
+
+export interface FlowExecutionResponse {
+  message: string;
+  data: {
+    run_id: string;
+    success: boolean;
+    completedSteps: {
+      node_id: number;
+      node_title: string;
+      node_order: number;
+      status: "success" | "failed";
+      statusCode: number;
+      responseBody: any;
+      durationMs: number;
+      error?: string;
+    }[];
+    failedAt?: string;
+  };
 }

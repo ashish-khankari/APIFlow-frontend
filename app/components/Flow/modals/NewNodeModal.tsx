@@ -37,10 +37,18 @@ export function NewNodeModal({
             <X size={18} />
           </button>
         </div>
-        <form onSubmit={onSubmit}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!title.trim() || !description.trim()) return;
+            onSubmit(e);
+          }}
+        >
           <div className="modal-body">
             <div className="form-group">
-              <label>Node Title</label>
+              <label>
+                Node Title <span style={{ color: "var(--neon-lime)" }}>*</span>
+              </label>
               <input
                 className="form-input"
                 value={title}
@@ -52,7 +60,9 @@ export function NewNodeModal({
               />
             </div>
             <div className="form-group">
-              <label>Node Description</label>
+              <label>
+                Node Description <span style={{ color: "var(--neon-lime)" }}>*</span>
+              </label>
               <textarea
                 className="form-textarea"
                 rows={3}
@@ -72,7 +82,15 @@ export function NewNodeModal({
             >
               Cancel
             </button>
-            <button type="submit" className="btn-primary">
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={!title.trim() || !description.trim()}
+              style={{
+                opacity: !title.trim() || !description.trim() ? 0.5 : 1,
+                cursor: !title.trim() || !description.trim() ? "not-allowed" : "pointer",
+              }}
+            >
               Create Node
             </button>
           </div>

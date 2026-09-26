@@ -17,7 +17,7 @@ import {
   MarkerType,
   NodeChange,
 } from "@xyflow/react";
-import { Edit2, Play, Menu } from "lucide-react";
+import { Edit2, Play, Menu, History } from "lucide-react";
 
 import { useAppDispatch, useAppSelector } from "./lib/hooks";
 import { SET_LOGOUT } from "./lib/reducer/usersSlice";
@@ -26,6 +26,8 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 
 import {
   ApiTestResult,
+  CustomField,
+  FlowExecutionResponse,
   FlowNode,
   NodeDetails,
   NodeSlicesResponseInterface,
@@ -43,6 +45,7 @@ import { FlowCanvas } from "./components/Flow/FlowCanvas";
 import { NodeInspector } from "./components/Flow/NodeInspector";
 import { EditFlowModal } from "./components/Flow/modals/EditFlowModal";
 import { DeleteFlowModal } from "./components/Flow/modals/DeleteFlowModal";
+import { ExecutionHistoryModal } from "./components/Flow/modals/ExecutionHistoryModal";
 import { request } from "./services/request";
 import CreateNewFlow from "./components/Flow/modals/CreateFlowModal";
 import { NewNodeModal } from "./components/Flow/modals/NewNodeModal";
@@ -58,6 +61,8 @@ export default function FlowEditorPage() {
 
   // Modals state
   const [isEditingFlowModalOpen, setIsEditingFlowModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isSavingNode, setIsSavingNode] = useState(false);
   const [flowEditName, setFlowEditName] = useState("");
   const [flowEditDesc, setFlowEditDesc] = useState("");
 
@@ -186,18 +191,63 @@ export default function FlowEditorPage() {
 
         const items = res?.data || [];
 
-        const mappedNodes: FlowNode[] = items.map((slice, index) => ({
-          id: String(slice.id),
-          type: "apiStep",
-          position: { x: 80 + index * 340, y: 180 },
-          data: {
-            nodeNumber: slice?.node_order,
-            node_title: slice?.node_title,
-            node_description: slice?.node_description,
-            status: "Not started",
-            customFields: [],
-          },
-        }));
+        const mappedNodes: FlowNode[] = items.map((slice, index) => {
+          const customFields: CustomField[] = [];
+
+          if (slice.node_api_headers && typeof slice.node_api_headers === "object") {
+            Object.entries(slice.node_api_headers).forEach(([k, v]) => {
+              customFields.push({
+                id: `header-${k}-${index}`,
+                label: k,
+                value: String(v),
+                type: "header",
+              });
+            });
+          }
+
+          if (slice.node_api_query && typeof slice.node_api_query === "object") {
+            Object.entries(slice.node_api_query).forEach(([k, v]) => {
+              customFields.push({
+                id: `query-${k}-${index}`,
+                label: k,
+                value: String(v),
+                type: "query",
+              });
+            });
+          }
+
+          let requestBodyStr = "";
+          if (slice.node_api_request_body) {
+            requestBodyStr =
+              typeof slice.node_api_request_body === "string"
+                ? slice.node_api_request_body
+                : JSON.stringify(slice.node_api_request_body, null, 2);
+          }
+
+          const isConfigured = Boolean(
+            slice.node_api_base_url || slice.node_api_end_point || slice.node_api_id
+          );
+
+          return {
+            id: String(slice.id),
+            type: "apiStep",
+            position: { x: 80 + index * 340, y: 180 },
+            data: {
+              nodeNumber: slice?.node_order,
+              node_title: slice?.node_title,
+              label: slice?.node_title,
+              node_description: slice?.node_description,
+              description: slice?.node_description,
+              method: slice?.node_api_method || "GET",
+              baseUrl: slice?.node_api_base_url || "",
+              endpoint: slice?.node_api_end_point || "",
+              authToken: slice?.node_api_token || "",
+              status: isConfigured ? "Completed" : "Not started",
+              customFields,
+              requestBody: requestBodyStr,
+            },
+          };
+        });
 
         setFlows((prevFlows) =>
           prevFlows.map((flow) =>
@@ -518,40 +568,169 @@ export default function FlowEditorPage() {
       description: node.data?.description ?? node.data?.node_description ?? "",
       node_description:
         node.data?.node_description ?? node.data?.description ?? "",
-      method: node.data?.method,
-      baseUrl: node.data?.baseUrl,
-      endpoint: node.data?.endpoint,
+      method: node.data?.method || "GET",
+      baseUrl: node.data?.baseUrl || "",
+      endpoint: node.data?.endpoint || "",
+      authToken: node.data?.authToken || "",
       status: node.data?.status ?? "Not started",
       customFields: node.data?.customFields ?? [],
+      requestBody: node.data?.requestBody || "",
     });
     setTestApiResult(null);
   }, []);
 
-  const handleSaveNodeDetails = (e: FormEvent) => {
+  const handleSaveNodeDetails = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedNodeId || !draftNode) return;
+    if (!selectedNodeId || !draftNode || !activeFlowId) {
+      toast.error("Validation Error", "No active node or workflow selected");
+      return;
+    }
 
-    updateActiveFlow((flow) => ({
-      ...flow,
-      nodes: (flow?.nodes || []).map((n) =>
-        n.id === selectedNodeId
-          ? {
-            ...n,
-            data: {
-              ...draftNode,
-              status: "Completed",
-            },
+    const title = (draftNode.label || draftNode.node_title || "").trim();
+    const description = (draftNode.description || draftNode.node_description || "").trim();
+    const baseUrl = (draftNode.baseUrl || "").trim();
+    const endpoint = (draftNode.endpoint || "").trim();
+
+    // Data presence validations
+    if (!title) {
+      toast.error("Validation Error", "API Name is required");
+      return;
+    }
+
+    if (!baseUrl) {
+      toast.error("Validation Error", "Base URL is required");
+      return;
+    }
+
+    if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+      toast.error("Validation Error", "Base URL must start with http:// or https:// (e.g. https://api.example.com)");
+      return;
+    }
+
+    if (!endpoint) {
+      toast.error("Validation Error", "Endpoint path is required (e.g. /v1/users)");
+      return;
+    }
+
+    let requestBodyObj: any = null;
+    if (draftNode.method !== "GET" && draftNode.requestBody?.trim()) {
+      try {
+        requestBodyObj = JSON.parse(draftNode.requestBody);
+      } catch (err: any) {
+        toast.error("Validation Error", `Invalid JSON syntax in request body: ${err.message}`);
+        return;
+      }
+    }
+
+    setIsSavingNode(true);
+    try {
+      const nodeIdNum = Number(selectedNodeId);
+
+      // 1. Update node title & description if modified
+      await request({
+        url: `/node/${activeFlowId}/${nodeIdNum}`,
+        method: "PATCH",
+        data: {
+          node_title: title,
+          node_description: description,
+        },
+      });
+
+      // 2. Prepare headers & query from customFields
+      const headersObj: Record<string, string> = {};
+      const queryObj: Record<string, any> = {};
+
+      (draftNode.customFields || []).forEach((field) => {
+        if (field.label && field.value) {
+          if (field.type === "query") {
+            queryObj[field.label] = field.value;
+          } else {
+            headersObj[field.label] = field.value;
           }
-          : n,
-      ),
-    }));
+        }
+      });
 
-    showToast("API configuration saved");
+      // 3. Save node API configuration to backend
+      await request({
+        url: "/node-api",
+        method: "POST",
+        data: {
+          node_id: nodeIdNum,
+          flow_id: activeFlowId,
+          node_api_method: draftNode.method || "GET",
+          node_api_base_url: baseUrl,
+          node_api_end_point: endpoint,
+          node_api_token: draftNode.authToken?.trim() || null,
+          node_api_headers: Object.keys(headersObj).length > 0 ? headersObj : null,
+          node_api_request_body: requestBodyObj,
+          node_api_query: Object.keys(queryObj).length > 0 ? queryObj : null,
+          node_api_params: null,
+        },
+      });
+
+      // 4. Update local canvas state immediately
+      updateActiveFlow((flow) => ({
+        ...flow,
+        nodes: (flow?.nodes || []).map((n) =>
+          n.id === selectedNodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  ...draftNode,
+                  label: title,
+                  node_title: title,
+                  description,
+                  node_description: description,
+                  baseUrl,
+                  endpoint,
+                  status: "Completed",
+                },
+              }
+            : n,
+        ),
+      }));
+
+      toast.success("Success", "API configuration saved successfully");
+    } catch (err: any) {
+      console.error("Save node API error:", err);
+      toast.error("Error", err?.response?.data?.message || err?.message || "Failed to save API details");
+    } finally {
+      setIsSavingNode(false);
+    }
   };
 
   // Test API in Inspector
   const handleTestSingleApi = async () => {
     if (!draftNode) return;
+
+    const baseUrl = (draftNode.baseUrl || "").trim();
+    const endpoint = (draftNode.endpoint || "").trim();
+
+    if (!baseUrl) {
+      toast.error("Validation Error", "Please provide a Base URL to test the API");
+      return;
+    }
+
+    if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+      toast.error("Validation Error", "Base URL must start with http:// or https://");
+      return;
+    }
+
+    if (!endpoint) {
+      toast.error("Validation Error", "Please provide an Endpoint path to test the API");
+      return;
+    }
+
+    if (draftNode.method !== "GET" && draftNode.requestBody?.trim()) {
+      try {
+        JSON.parse(draftNode.requestBody);
+      } catch (err: any) {
+        toast.error("Validation Error", `Request body contains invalid JSON: ${err.message}`);
+        return;
+      }
+    }
+
     setIsTestingSingleApi(true);
     setTestApiResult(null);
 
@@ -559,7 +738,8 @@ export default function FlowEditorPage() {
       const result = await simulateSingleApiTest(draftNode);
       setTestApiResult(result);
       showToast(
-        `API test executed: ${result.statusCode} ${result.status === "success" ? "OK" : "ERROR"
+        `API test executed: ${result.statusCode} ${
+          result.status === "success" ? "OK" : "ERROR"
         }`,
       );
     } catch {
@@ -569,47 +749,149 @@ export default function FlowEditorPage() {
     }
   };
 
-  // Run Sequential Flow Execution
+  // Run Sequential Flow Execution (Real backend execution)
   const handleRunTest = async () => {
     const nodes = activeFlow?.nodes || [];
-    if (isTesting || nodes.length === 0) return;
+    if (isTesting) return;
+
+    if (!activeFlowId) {
+      toast.error("Validation Error", "No active workflow selected");
+      return;
+    }
+
+    if (nodes.length === 0) {
+      toast.error("Empty Workflow", "Cannot run empty workflow. Please add at least one API node.");
+      return;
+    }
+
+    // Validate that all nodes in the workflow have API configuration
+    const unconfiguredNodes = nodes.filter(
+      (node) => !node.data?.baseUrl?.trim() || !node.data?.endpoint?.trim()
+    );
+
+    if (unconfiguredNodes.length > 0) {
+      const missingList = unconfiguredNodes
+        .map((n) => `"${n.data?.label || n.data?.node_title || 'Untitled Node'}"`)
+        .slice(0, 3)
+        .join(", ");
+      const extra = unconfiguredNodes.length > 3 ? ` and ${unconfiguredNodes.length - 3} more` : "";
+      toast.error(
+        "Workflow Unconfigured",
+        `Cannot run flow: Node(s) ${missingList}${extra} have no API data (missing Base URL or Endpoint). Please configure all nodes before running.`
+      );
+      return;
+    }
+
     setIsTesting(true);
-    showToast("Executing API workflow sequence...");
+    showToast("Executing workflow on server...");
 
     // Reset all nodes to idle
     updateActiveFlow((flow) => ({
       ...flow,
       nodes: (flow?.nodes || []).map((n) => ({
         ...n,
-        data: { ...n.data, executionState: "idle" },
+        data: {
+          ...n.data,
+          executionState: "idle",
+          actualStatus: undefined,
+          latencyMs: undefined,
+        },
       })),
     }));
 
-    // Sequential execution through dummy service
-    await simulateWorkflowExecution(
-      nodes,
-      (nodeId, state, actualStatus, latencyMs) => {
+    try {
+      // 1. Call real backend execution endpoint
+      const response: FlowExecutionResponse = await request({
+        url: `/execute/${activeFlowId}`,
+        method: "GET",
+      });
+
+      const execResult = response?.data;
+      const completedSteps = execResult?.completedSteps || [];
+
+      // 2. Animate step-by-step through each node
+      for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        const step = completedSteps.find(
+          (s) => s.node_order === (node.data?.nodeNumber || i + 1)
+        );
+
+        // Mark running
         updateActiveFlow((flow) => ({
           ...flow,
           nodes: (flow?.nodes || []).map((n) =>
-            n.id === nodeId
-              ? {
-                ...n,
-                data: {
-                  ...n.data,
-                  executionState: state,
-                  actualStatus: actualStatus ?? n.data.actualStatus,
-                  latencyMs: latencyMs ?? n.data.latencyMs,
-                },
-              }
-              : n,
+            n.id === node.id
+              ? { ...n, data: { ...n.data, executionState: "running" } }
+              : n
           ),
         }));
-      },
-    );
 
-    setIsTesting(false);
-    showToast(`Flow passed: ${nodes.length}/${nodes.length} APIs verified`);
+        await new Promise((r) => setTimeout(r, 400));
+
+        if (step) {
+          updateActiveFlow((flow) => ({
+            ...flow,
+            nodes: (flow?.nodes || []).map((n) =>
+              n.id === node.id
+                ? {
+                    ...n,
+                    data: {
+                      ...n.data,
+                      executionState: step.status,
+                      actualStatus: step.statusCode,
+                      latencyMs: step.durationMs,
+                    },
+                  }
+                : n
+            ),
+          }));
+
+          if (step.status === "failed") {
+            // Execution stopped at this step
+            break;
+          }
+        } else {
+          // If no step log for subsequent nodes (e.g. earlier step failed)
+          updateActiveFlow((flow) => ({
+            ...flow,
+            nodes: (flow?.nodes || []).map((n) =>
+              n.id === node.id
+                ? { ...n, data: { ...n.data, executionState: "not_executed" } }
+                : n
+            ),
+          }));
+        }
+      }
+
+      if (execResult?.success) {
+        toast.success(
+          "Workflow Succeeded",
+          `All ${completedSteps.length} API steps verified successfully!`
+        );
+      } else {
+        toast.error(
+          "Workflow Failed",
+          `Execution failed at step: ${execResult?.failedAt || "an error"}`
+        );
+      }
+    } catch (err: any) {
+      console.error("Workflow execution error:", err);
+      const msg =
+        err?.response?.data?.message || err?.message || "Execution failed";
+      toast.error("Execution Error", msg);
+
+      // Mark first uncompleted node as failed
+      updateActiveFlow((flow) => ({
+        ...flow,
+        nodes: (flow?.nodes || []).map((n, idx) =>
+          idx === 0
+            ? { ...n, data: { ...n.data, executionState: "failed" } }
+            : n
+        ),
+      }));
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const activeNodeCount = activeFlow?.nodes?.length || 0;
@@ -733,7 +1015,27 @@ export default function FlowEditorPage() {
                 }}
               >
                 <Play size={13} fill="var(--neon-lime-dark)" />
-                <span>{isTesting ? "Testing..." : "Run Flow"}</span>
+                <span>{isTesting ? "Executing..." : "Run Flow"}</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={!activeFlowId}
+                onClick={() => setIsHistoryModalOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 14px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: !activeFlowId ? "not-allowed" : "pointer",
+                }}
+                title="View past execution history"
+              >
+                <History size={13} style={{ color: "var(--neon-lime)" }} />
+                <span>History</span>
               </button>
 
               {/* Auth status & User Nav */}
@@ -821,10 +1123,19 @@ export default function FlowEditorPage() {
             onTestApi={handleTestSingleApi}
             isTestingSingleApi={isTestingSingleApi}
             testApiResult={testApiResult}
+            isSaving={isSavingNode}
           />
         )}
 
         {/* Modals */}
+        <ExecutionHistoryModal
+          isOpen={isHistoryModalOpen}
+          flowId={activeFlowId}
+          flowName={activeFlow?.flow_name || activeFlow?.name || "Workflow"}
+          onClose={() => setIsHistoryModalOpen(false)}
+          onRunFlow={handleRunTest}
+        />
+
         <EditFlowModal
           isOpen={isEditingFlowModalOpen}
           name={flowEditName}

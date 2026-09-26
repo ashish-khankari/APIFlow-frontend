@@ -1,40 +1,84 @@
 import { NodeChange } from "@xyflow/react";
 import { ApiTestResult, FlowNode, NodeDetails, NodeExecutionState, SavedFlow } from "@/app/types/flow";
 
+import axios from "axios";
+
 /**
- * Simulates executing a single API node configuration in the inspector.
+ * Executes a single API node test against the real endpoint.
  */
-export async function simulateSingleApiTest(
+export async function testSingleApi(
   draftNode: NodeDetails,
   signal?: AbortSignal
 ): Promise<ApiTestResult> {
-  // Simulating network round-trip latency
-  await new Promise((resolve) => setTimeout(resolve, 600));
+  const startTime = Date.now();
+  const baseUrl = (draftNode.baseUrl || "").trim().replace(/\/+$/, "");
+  const endpoint = (draftNode.endpoint || "").trim().replace(/^\/+/, "");
+  const fullUrl = endpoint ? `${baseUrl}/${endpoint}` : baseUrl;
 
-  if (signal?.aborted) {
-    throw new Error("API test aborted");
+  if (!fullUrl) {
+    throw new Error("Base URL or endpoint is missing");
   }
 
-  const statusCode = draftNode.expectedStatus || 200;
-  const isSuccess = statusCode >= 200 && statusCode < 400;
+  const headers: Record<string, string> = {};
+  const queryParams: Record<string, string> = {};
+  (draftNode.customFields || []).forEach((field) => {
+    if (field.label && field.value) {
+      if (field.type === "query") {
+        queryParams[field.label] = field.value;
+      } else {
+        headers[field.label] = field.value;
+      }
+    }
+  });
 
-  return {
-    status: isSuccess ? "success" : "failed",
-    statusCode,
-    latencyMs: 180 + Math.floor(Math.random() * 90),
-    body: JSON.stringify(
-      {
-        success: isSuccess,
-        endpoint: draftNode.endpoint || "/api",
-        method: draftNode.method || "POST",
-        message: `${draftNode.node_title} passed test assertions`,
-        timestamp: new Date().toISOString(),
-      },
-      null,
-      2
-    ),
-  };
+  if (draftNode.authToken) {
+    headers["Authorization"] = draftNode.authToken.startsWith("Bearer ")
+      ? draftNode.authToken
+      : `Bearer ${draftNode.authToken}`;
+  }
+
+  let requestData: any = undefined;
+  if (draftNode.method !== "GET" && draftNode.requestBody) {
+    try {
+      requestData = JSON.parse(draftNode.requestBody);
+    } catch {
+      requestData = draftNode.requestBody;
+    }
+  }
+
+  try {
+    const res = await axios({
+      url: fullUrl,
+      method: draftNode.method || "GET",
+      headers,
+      params: Object.keys(queryParams).length > 0 ? queryParams : undefined,
+      data: requestData,
+      timeout: 10000,
+      signal,
+    });
+
+    const latencyMs = Date.now() - startTime;
+    return {
+      status: "success",
+      statusCode: res.status,
+      latencyMs,
+      body: JSON.stringify(res.data, null, 2),
+    };
+  } catch (err: any) {
+    const latencyMs = Date.now() - startTime;
+    const statusCode = err?.response?.status || 0;
+    const responseBody = err?.response?.data || { error: err.message };
+
+    return {
+      status: "failed",
+      statusCode: statusCode || 500,
+      latencyMs,
+      body: JSON.stringify(responseBody, null, 2),
+    };
+  }
 }
+
+export const simulateSingleApiTest = testSingleApi;
 
 /**
  * Simulates a sequential end-to-end execution of a workflow pipeline.
