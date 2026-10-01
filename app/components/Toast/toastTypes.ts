@@ -64,8 +64,8 @@ export function parseApiError(error: unknown, fallbackMessage?: string): {
         : "");
 
     if (responseData.details) {
-      extractedDetails = typeof responseData.details === "string" 
-        ? responseData.details 
+      extractedDetails = typeof responseData.details === "string"
+        ? responseData.details
         : JSON.stringify(responseData.details, null, 2);
     }
   }
@@ -85,7 +85,7 @@ export function parseApiError(error: unknown, fallbackMessage?: string): {
         message:
           extractedMessage ||
           fallbackMessage ||
-          "Unable to connect to the server. Please verify your backend server is running on http://localhost:8080.",
+          "Unable to connect to the server. Please verify your backend server is running on https://apiflow-backend.onrender.com.",
       };
     }
 
