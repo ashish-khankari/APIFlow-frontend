@@ -1,6 +1,6 @@
 "use client";
 
-import React, { FormEvent, useState } from "react";
+import React, { FormEvent, useRef, useState } from "react";
 import {
   X,
   HelpCircle,
@@ -49,6 +49,7 @@ export function NodeInspector({
   const [showAuthToken, setShowAuthToken] = useState(false);
   const [paramsTab, setParamsTab] = useState<"headers" | "query">("headers");
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
+  const bodyValidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const existingCustomFields = draftNode.customFields ?? [];
 
@@ -129,36 +130,73 @@ export function NodeInspector({
     });
   };
 
+  /**
+   * Attempts to parse and pretty-print the request body.
+   * If direct parse fails, auto-fixes common mistakes:
+   *   - Single-quoted keys/values  → double-quoted
+   *   - Trailing commas in objects/arrays
+   */
   const handleFormatJson = () => {
     if (!draftNode.requestBody) return;
-    try {
-      const parsed = JSON.parse(draftNode.requestBody);
+
+    const tryParse = (src: string): any => {
+      try { return JSON.parse(src); } catch { return null; }
+    };
+
+    const autoFix = (src: string): string => {
+      // Replace single-quoted strings with double-quoted, handling escaped apostrophes
+      let fixed = src.replace(
+        /'(?:[^'\\]|\\.)*'/g,
+        (match) => '"' + match.slice(1, -1).replace(/"/g, '\\"').replace(/\\'/g, "'") + '"'
+      );
+      // Remove trailing commas before ] or }
+      fixed = fixed.replace(/,\s*([}\]])/g, '$1');
+      return fixed;
+    };
+
+    const raw = draftNode.requestBody;
+    let parsed = tryParse(raw);
+
+    if (!parsed) {
+      const fixed = autoFix(raw);
+      parsed = tryParse(fixed);
+    }
+
+    if (parsed !== null) {
       const formatted = JSON.stringify(parsed, null, 2);
       onDraftNodeChange({ ...draftNode, requestBody: formatted });
       setFieldErrors((prev) => ({ ...prev, requestBody: undefined }));
-    } catch (e: any) {
+    } else {
       setFieldErrors((prev) => ({
         ...prev,
-        requestBody: e.message || "Invalid JSON syntax",
+        requestBody: "Could not parse JSON — check for syntax errors",
       }));
     }
   };
 
   const handleRequestBodyChange = (val: string) => {
     onDraftNodeChange({ ...draftNode, requestBody: val });
+
+    // Clear any pending debounce timer
+    if (bodyValidateTimerRef.current) clearTimeout(bodyValidateTimerRef.current);
+
     if (!val.trim()) {
       setFieldErrors((prev) => ({ ...prev, requestBody: undefined }));
       return;
     }
-    try {
-      JSON.parse(val);
-      setFieldErrors((prev) => ({ ...prev, requestBody: undefined }));
-    } catch (e: any) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        requestBody: e.message || "Malformed JSON",
-      }));
-    }
+
+    // Debounce: only show error after user pauses typing for 600ms
+    bodyValidateTimerRef.current = setTimeout(() => {
+      try {
+        JSON.parse(val);
+        setFieldErrors((prev) => ({ ...prev, requestBody: undefined }));
+      } catch (e: any) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          requestBody: `Invalid JSON — ${e.message}. Use the Format button to auto-fix.`,
+        }));
+      }
+    }, 600);
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -183,8 +221,7 @@ export function NodeInspector({
   const isFormEmpty =
     !titleValue.trim() ||
     !draftNode.baseUrl?.trim() ||
-    !draftNode.endpoint?.trim() ||
-    Boolean(fieldErrors.requestBody);
+    !draftNode.endpoint?.trim();
 
   return (
     <>
@@ -541,18 +578,18 @@ export function NodeInspector({
                     type="button"
                     onClick={handleFormatJson}
                     className="action-icon-btn"
-                    title="Format & validate JSON"
+                    title="Format JSON & auto-fix single quotes or trailing commas"
                     style={{
                       fontSize: "11px",
                       padding: "2px 8px",
                       display: "flex",
                       alignItems: "center",
                       gap: "4px",
-                      color: "var(--neon-lime)",
+                      color: fieldErrors.requestBody ? "#F43F5E" : "var(--neon-lime)",
                     }}
                   >
                     <Sparkles size={11} />
-                    <span>Format</span>
+                    <span>{fieldErrors.requestBody ? "Auto-Fix" : "Format"}</span>
                   </button>
                 )}
               </div>
@@ -578,15 +615,34 @@ export function NodeInspector({
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "center",
+                        alignItems: "flex-start",
                         gap: "6px",
                         fontSize: "11px",
                         color: "#F43F5E",
                         marginTop: "4px",
                       }}
                     >
-                      <AlertTriangle size={12} />
-                      <span>{fieldErrors.requestBody}</span>
+                      <AlertTriangle size={12} style={{ marginTop: "1px", flexShrink: 0 }} />
+                      <span>
+                        {fieldErrors.requestBody}
+                        {" — "}
+                        <button
+                          type="button"
+                          onClick={handleFormatJson}
+                          style={{
+                            color: "#BAFF39",
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            fontSize: "inherit",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          Click Auto-Fix to repair it
+                        </button>
+                      </span>
                     </div>
                   )}
                 </>
