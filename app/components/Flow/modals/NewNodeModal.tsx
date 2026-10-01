@@ -7,6 +7,7 @@ interface NewNodeModalProps {
   isOpen: boolean;
   title: string;
   description: string;
+  isLoading?: boolean;
   onTitleChange: (val: string) => void;
   onDescriptionChange: (val: string) => void;
   onClose: () => void;
@@ -17,6 +18,7 @@ export function NewNodeModal({
   isOpen,
   title,
   description,
+  isLoading = false,
   onTitleChange,
   onDescriptionChange,
   onClose,
@@ -85,13 +87,13 @@ export function NewNodeModal({
             <button
               type="submit"
               className="btn-primary"
-              disabled={!title.trim() || !description.trim()}
+              disabled={!title.trim() || !description.trim() || isLoading}
               style={{
-                opacity: !title.trim() || !description.trim() ? 0.5 : 1,
-                cursor: !title.trim() || !description.trim() ? "not-allowed" : "pointer",
+                opacity: !title.trim() || !description.trim() || isLoading ? 0.5 : 1,
+                cursor: !title.trim() || !description.trim() || isLoading ? "not-allowed" : "pointer",
               }}
             >
-              Create Node
+              {isLoading ? "Creating..." : "Create Node"}
             </button>
           </div>
         </form>

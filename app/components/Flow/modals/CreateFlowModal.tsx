@@ -61,7 +61,7 @@ export function CreateNewFlow({
           </button>
         </div>
 
-        <form onSubmit={onSubmit}>
+        <form onSubmit={onSubmit} noValidate>
           <div className="modal-body">
             <div className="form-group">
               <label htmlFor="create-flow-title">
@@ -74,13 +74,12 @@ export function CreateNewFlow({
                 onChange={(e) => onFlowTitleChange(e.target.value)}
                 placeholder="e.g. Authentication Pipeline, Checkout API"
                 autoFocus
-                required
               />
             </div>
 
             <div className="form-group">
               <label htmlFor="create-flow-description">
-                Flow Description <span style={{ color: "var(--neon-lime)" }}>*</span>
+                Flow Description <span style={{ color: "var(--text-secondary)", fontSize: "11px", fontWeight: "normal" }}>(Optional)</span>
               </label>
               <textarea
                 id="create-flow-description"
@@ -89,7 +88,6 @@ export function CreateNewFlow({
                 value={description}
                 onChange={(e) => onFlowDescriptionChange(e.target.value)}
                 placeholder="e.g. Sequential test verifying login, token validation, and session lifecycle..."
-                required
               />
             </div>
 
@@ -103,7 +101,6 @@ export function CreateNewFlow({
                 value={tokenKey}
                 onChange={(e) => onTokenKeyChange(e.target.value)}
                 placeholder="e.g access_token"
-                required
               />
             </div>
           </div>
@@ -120,7 +117,7 @@ export function CreateNewFlow({
             <button
               type="submit"
               className="btn-primary"
-              disabled={isLoading || !title.trim() || !description.trim() || !tokenKey.trim()}
+              disabled={isLoading}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
