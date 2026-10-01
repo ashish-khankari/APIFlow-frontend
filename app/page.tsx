@@ -806,8 +806,50 @@ export default function FlowEditorPage() {
         method: "GET",
       });
 
-      const execResult = response?.data;
-      const completedSteps = execResult?.completedSteps || [];
+      const runId = queueRes?.data?.runId;
+      console.log("[Execute] Job queued, runId:", runId);
+
+      if (!runId) throw new Error("No runId returned from server");
+
+      // 2. Poll /execute/run/:runId until status is completed or failed
+      //    (BullMQ worker runs async — we wait for it to finish)
+      let execDetail: import("./types/flow").ExecutionRunDetail | null = null;
+      const MAX_POLLS = 30;
+      const POLL_INTERVAL_MS = 1500;
+
+      for (let poll = 0; poll < MAX_POLLS; poll++) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+
+        try {
+          const runRes = await request<{ message: string; data: import("./types/flow").ExecutionRunDetail }>({
+            url: `/execute/run/${runId}`,
+            method: "GET",
+          });
+
+          const detail = runRes?.data;
+          console.log(`[Execute] Poll #${poll + 1} status:`, detail?.status);
+
+          if (detail?.status === "completed" || detail?.status === "failed") {
+            execDetail = detail;
+            break;
+          }
+          // If status is still processing/pending, keep polling
+        } catch (pollErr: any) {
+          // 404 = run not yet inserted in DB (worker still running) — keep waiting
+          const status = pollErr?.response?.status ?? pollErr?.status;
+          if (status === 404) {
+            console.log(`[Execute] Poll #${poll + 1}: run not ready yet, retrying...`);
+            continue;
+          }
+          throw pollErr; // re-throw unexpected errors
+        }
+      }
+
+      if (!execDetail) {
+        throw new Error("Execution timed out — please check history for results");
+      }
+
+      const steps = execDetail.steps || [];
 
       // 2. Animate step-by-step through each node
       for (let i = 0; i < nodes.length; i++) {

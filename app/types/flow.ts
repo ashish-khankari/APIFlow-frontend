@@ -127,21 +127,16 @@ export interface ExecutionRunDetail extends ExecutionRunSummary {
   steps: ExecutionStepLog[];
 }
 
-export interface FlowExecutionResponse {
+// Response from POST /execute/:flowId — job is queued, not yet complete
+export interface FlowQueueResponse {
   message: string;
   data: {
-    run_id: string;
-    success: boolean;
-    completedSteps: {
-      node_id: number;
-      node_title: string;
-      node_order: number;
-      status: "success" | "failed";
-      statusCode: number;
-      responseBody: any;
-      durationMs: number;
-      error?: string;
-    }[];
-    failedAt?: string;
+    runId: string;
   };
+}
+
+// Response from GET /execute/run/:runId — completed run with step details
+export interface FlowExecutionResponse {
+  message: string;
+  data: ExecutionRunDetail;
 }
