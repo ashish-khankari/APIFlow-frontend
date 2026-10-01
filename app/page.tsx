@@ -27,7 +27,6 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import {
   ApiTestResult,
   CustomField,
-  FlowExecutionResponse,
   FlowNode,
   NodeDetails,
   NodeSlicesResponseInterface,
@@ -73,6 +72,7 @@ export default function FlowEditorPage() {
   const [pendingParentNodeId, setPendingParentNodeId] = useState<string | null>(
     null,
   );
+  const [isCreatingNode, setIsCreatingNode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Create Flow modal state
@@ -283,7 +283,7 @@ export default function FlowEditorPage() {
 
     try {
       setIsCreatingFlow(true);
-      await request({
+      const resoponse = await request({
         url: "/flow",
         method: "POST",
         data: {
@@ -292,17 +292,15 @@ export default function FlowEditorPage() {
           token_key: newFlowTokenKey.trim(),
         },
       });
-
-      showToast("Flow created successfully");
+      toast.success("Success", "Flow created successfully");
       setIsNewFlowModalOpen(false);
       setNewFlowName("");
       setNewFlowDesc("");
       setNewFlowTokenKey("");
       await fetchFlows();
     } catch (error: any) {
-      console.error("Create flow error:", error);
       const msg = error?.response?.data?.message || "Failed to create flow";
-      showToast(msg);
+      toast.error("Error", msg);
     } finally {
       setIsCreatingFlow(false);
     }
@@ -329,15 +327,23 @@ export default function FlowEditorPage() {
           flow_description: flowEditDesc.trim(),
         },
       });
-      toast.success("Success", response.message);
-      await fetchFlows();
+
+      // Directly update the active flow's name/description in state
+      // without calling fetchFlows(), which would strip nodes/edges from state
+      updateActiveFlow((flow) => ({
+        ...flow,
+        flow_name: flowEditName.trim(),
+        name: flowEditName.trim(),
+        flow_description: flowEditDesc.trim(),
+        description: flowEditDesc.trim(),
+      }));
+
+      toast.success("Success", response.message || "Workflow updated");
       setIsEditingFlowModalOpen(false);
     } catch (error: any) {
       const msg = error?.response?.data?.message || "Failed to update flow";
-      toast.error(msg);
+      toast.error("Error", msg);
     }
-    setIsEditingFlowModalOpen(false);
-    showToast("Workflow updated");
   };
 
   // Delete Flow
@@ -451,7 +457,7 @@ export default function FlowEditorPage() {
     e.preventDefault();
 
     if (!activeFlowId) {
-      showToast("Please select or create a workflow first");
+      toast.error("Error", "Please select or create a workflow first");
       return;
     }
 
@@ -459,12 +465,15 @@ export default function FlowEditorPage() {
     const trimmedDescription = newNodeDescription.trim();
 
     if (!trimmedTitle || !trimmedDescription) {
-      showToast("Node title and description are required");
+      toast.error("Validation Error", "Node title and description are required");
       return;
     }
 
     try {
-      await request({
+      setIsCreatingNode(true);
+
+      // Capture the response — it contains the real server-assigned id and node_order
+      const res: any = await request({
         method: "POST",
         url: "/node",
         data: {
@@ -474,59 +483,65 @@ export default function FlowEditorPage() {
         },
       });
 
-      const parentId = pendingParentNodeId;
+      const newNodeData = res?.data ?? res;
+      const newNodeId = String(newNodeData?.id ?? `node-${Date.now()}`);
+      const nodeOrder = newNodeData?.node_order ?? 1;
 
-      if (parentId) {
-        updateActiveFlow((flow) => {
-          const currentNodes = flow?.nodes || [];
-          const currentEdges = flow?.edges || [];
-          const sourceNode = currentNodes.find((n) => n.id === parentId);
-          if (!sourceNode) return flow;
+      // Directly append the new FlowNode into the active flow's state
+      updateActiveFlow((flow) => {
+        const currentNodes = flow?.nodes || [];
+        const currentEdges = flow?.edges || [];
+        const lastNode = currentNodes[currentNodes.length - 1] ?? null;
 
-          const newId = `node-${Date.now()}`;
-          const nextStepIndex = currentNodes.length + 1;
-          const nextNode: FlowNode = {
-            id: newId,
-            type: "apiStep",
-            position: {
-              x: sourceNode.position.x + 320,
-              y: sourceNode.position.y,
-            },
-            data: defaultNodeData(`API ${nextStepIndex}`, nextStepIndex),
-          };
+        const newFlowNode: FlowNode = {
+          id: newNodeId,
+          type: "apiStep",
+          position: {
+            x: lastNode ? lastNode.position.x + 340 : 80,
+            y: lastNode ? lastNode.position.y : 180,
+          },
+          data: {
+            nodeNumber: nodeOrder,
+            node_title: trimmedTitle,
+            label: trimmedTitle,
+            node_description: trimmedDescription,
+            description: trimmedDescription,
+            method: "GET",
+            baseUrl: "",
+            endpoint: "",
+            authToken: "",
+            status: "Not started",
+            customFields: [],
+            requestBody: "",
+          },
+        };
 
-          const newEdge: Edge = {
-            id: `edge-${parentId}-${newId}`,
-            source: parentId,
-            target: newId,
-            type: "smoothstep",
-            animated: true,
-            style: { stroke: "#BAFF39", strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: "#BAFF39" },
-          };
+        const updatedNodes = [...currentNodes, newFlowNode];
 
-          return {
-            ...flow,
-            nodes: [...currentNodes, nextNode],
-            edges: [...currentEdges, newEdge],
-          };
-        });
-      }
+        // Build edges connecting nodes sequentially
+        const updatedEdges = buildFlowEdges(updatedNodes);
 
+        return {
+          ...flow,
+          nodes: updatedNodes,
+          edges: updatedEdges,
+        };
+      });
+
+      const wasConnecting = Boolean(pendingParentNodeId);
       setNewNodeTitle("");
       setNewNodeDescription("");
       setPendingParentNodeId(null);
       setIsNewNodeModalOpen(false);
-      showToast(
-        parentId ? "Node connected successfully" : "Node created successfully",
+      toast.success(
+        "Success",
+        wasConnecting ? "Node connected successfully" : "Node created successfully",
       );
     } catch (error: any) {
       const msg = error?.response?.data?.message || "Failed to create node";
-      showToast(msg);
-      setNewNodeTitle("");
-      setNewNodeDescription("");
-      setPendingParentNodeId(null);
-      setIsNewNodeModalOpen(false);
+      toast.error("Error", msg);
+    } finally {
+      setIsCreatingNode(false);
     }
   };
 
@@ -537,13 +552,18 @@ export default function FlowEditorPage() {
           url: `/node/${activeFlowId}/${nodeId}`,
           method: "DELETE",
         });
-        updateActiveFlow((flow) => ({
-          ...flow,
-          nodes: (flow?.nodes || []).filter((n) => n.id !== nodeId),
-          edges: (flow?.edges || []).filter(
-            (e) => e.source !== nodeId && e.target !== nodeId,
-          ),
-        }));
+
+        if (activeFlowId !== null) {
+          await fetchNodesSlices(activeFlowId);
+        } else {
+          updateActiveFlow((flow) => ({
+            ...flow,
+            nodes: (flow?.nodes || []).filter((n) => n.id !== nodeId),
+            edges: (flow?.edges || []).filter(
+              (e) => e.source !== nodeId && e.target !== nodeId,
+            ),
+          }));
+        }
 
         if (selectedNodeId === nodeId) {
           setSelectedNodeId(null);
@@ -554,7 +574,7 @@ export default function FlowEditorPage() {
         toast.error("Error", error?.message);
       }
     },
-    [updateActiveFlow, selectedNodeId, activeFlowId],
+    [updateActiveFlow, selectedNodeId, activeFlowId, fetchNodesSlices],
   );
 
   // Inspector Panel Selection
@@ -674,19 +694,19 @@ export default function FlowEditorPage() {
         nodes: (flow?.nodes || []).map((n) =>
           n.id === selectedNodeId
             ? {
-                ...n,
-                data: {
-                  ...n.data,
-                  ...draftNode,
-                  label: title,
-                  node_title: title,
-                  description,
-                  node_description: description,
-                  baseUrl,
-                  endpoint,
-                  status: "Completed",
-                },
-              }
+              ...n,
+              data: {
+                ...n.data,
+                ...draftNode,
+                label: title,
+                node_title: title,
+                description,
+                node_description: description,
+                baseUrl,
+                endpoint,
+                status: "Completed",
+              },
+            }
             : n,
         ),
       }));
@@ -738,8 +758,7 @@ export default function FlowEditorPage() {
       const result = await simulateSingleApiTest(draftNode);
       setTestApiResult(result);
       showToast(
-        `API test executed: ${result.statusCode} ${
-          result.status === "success" ? "OK" : "ERROR"
+        `API test executed: ${result.statusCode} ${result.status === "success" ? "OK" : "ERROR"
         }`,
       );
     } catch {
@@ -800,8 +819,8 @@ export default function FlowEditorPage() {
     }));
 
     try {
-      // 1. Call real backend execution endpoint
-      const response: FlowExecutionResponse = await request({
+      // 1. Enqueue the flow job — backend returns { runId } immediately (HTTP 202)
+      const queueRes = await request<{ message: string; data: { runId: string } }>({
         url: `/execute/${activeFlowId}`,
         method: "GET",
       });
@@ -851,14 +870,33 @@ export default function FlowEditorPage() {
 
       const steps = execDetail.steps || [];
 
-      // 2. Animate step-by-step through each node
+      // 3. Animate step-by-step through each node using the fetched step logs
+      let hasFailed = false;
+
       for (let i = 0; i < nodes.length; i++) {
+        // If a prior step failed, leave all remaining nodes idle — don't animate them
+        if (hasFailed) break;
+
         const node = nodes[i];
-        const step = completedSteps.find(
+        const step = steps.find(
           (s) => s.node_order === (node.data?.nodeNumber || i + 1)
         );
 
-        // Mark running
+        if (!step) {
+          // No log for this node = it was never reached (execution stopped earlier)
+          // Leave it in idle state — do NOT flash "running"
+          updateActiveFlow((flow) => ({
+            ...flow,
+            nodes: (flow?.nodes || []).map((n) =>
+              n.id === node.id
+                ? { ...n, data: { ...n.data, executionState: "not_executed" } }
+                : n
+            ),
+          }));
+          continue;
+        }
+
+        // Mark running briefly
         updateActiveFlow((flow) => ({
           ...flow,
           nodes: (flow?.nodes || []).map((n) =>
@@ -870,50 +908,40 @@ export default function FlowEditorPage() {
 
         await new Promise((r) => setTimeout(r, 400));
 
-        if (step) {
-          updateActiveFlow((flow) => ({
-            ...flow,
-            nodes: (flow?.nodes || []).map((n) =>
-              n.id === node.id
-                ? {
-                    ...n,
-                    data: {
-                      ...n.data,
-                      executionState: step.status,
-                      actualStatus: step.statusCode,
-                      latencyMs: step.durationMs,
-                    },
-                  }
-                : n
-            ),
-          }));
+        // Apply real result
+        updateActiveFlow((flow) => ({
+          ...flow,
+          nodes: (flow?.nodes || []).map((n) =>
+            n.id === node.id
+              ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  executionState: step.status,
+                  actualStatus: step.status_code,
+                  latencyMs: step.duration_ms,
+                },
+              }
+              : n
+          ),
+        }));
 
-          if (step.status === "failed") {
-            // Execution stopped at this step
-            break;
-          }
-        } else {
-          // If no step log for subsequent nodes (e.g. earlier step failed)
-          updateActiveFlow((flow) => ({
-            ...flow,
-            nodes: (flow?.nodes || []).map((n) =>
-              n.id === node.id
-                ? { ...n, data: { ...n.data, executionState: "not_executed" } }
-                : n
-            ),
-          }));
+        if (step.status === "failed") {
+          hasFailed = true;
+          break;
         }
       }
 
-      if (execResult?.success) {
+      if (execDetail.status === "completed") {
         toast.success(
           "Workflow Succeeded",
-          `All ${completedSteps.length} API steps verified successfully!`
+          `All ${steps.length} API steps completed successfully!`
         );
       } else {
+        const failedStep = steps.find((s) => s.status === "failed");
         toast.error(
           "Workflow Failed",
-          `Execution failed at step: ${execResult?.failedAt || "an error"}`
+          `Execution failed at: ${failedStep?.node_title || "an unknown step"}`
         );
       }
     } catch (err: any) {
@@ -1201,6 +1229,7 @@ export default function FlowEditorPage() {
           isOpen={isNewNodeModalOpen}
           title={newNodeTitle}
           description={newNodeDescription}
+          isLoading={isCreatingNode}
           onTitleChange={setNewNodeTitle}
           onDescriptionChange={setNewNodeDescription}
           onClose={() => {
