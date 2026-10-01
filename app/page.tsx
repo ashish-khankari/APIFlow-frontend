@@ -276,8 +276,8 @@ export default function FlowEditorPage() {
   // Create Flow handler
   const handleCreateFlow = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newFlowName.trim() || !newFlowDesc.trim() || !newFlowTokenKey.trim()) {
-      showToast("Flow name, description, and token key are required");
+    if (!newFlowName.trim() || !newFlowTokenKey.trim()) {
+      toast.error("Validation Error", "Flow name and token key are required");
       return;
     }
 
