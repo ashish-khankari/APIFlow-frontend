@@ -6,8 +6,14 @@ import axios, {
 } from "axios";
 import { toast } from "../components/Toast";
 
+export const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL ||
+    (process.env.NODE_ENV === "production"
+        ? "https://apiflow-backend.onrender.com"
+        : "http://localhost:8080");
+
 const api: AxiosInstance = axios.create({
-    baseURL: 'https://apiflow-backend.onrender.com',
+    baseURL: API_BASE_URL,
     withCredentials: true,
     timeout: 15_000,
     headers: {

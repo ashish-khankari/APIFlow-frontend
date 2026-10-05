@@ -85,7 +85,7 @@ export function parseApiError(error: unknown, fallbackMessage?: string): {
         message:
           extractedMessage ||
           fallbackMessage ||
-          "Unable to connect to the server. Please verify your backend server is running on https://apiflow-backend.onrender.com.",
+          "Unable to connect to the server. Please verify your backend server is running.",
       };
     }
 
